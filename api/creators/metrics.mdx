@@ -1,0 +1,497 @@
+---
+title: 'Creator Metrics'
+description: 'Track engagement metrics and performance over time'
+---
+
+# Creator Metrics
+
+Retrieve historical metrics and engagement analytics for creators across platforms.
+
+## Endpoint
+
+```
+GET /api/creators/{creatorId}/metrics
+```
+
+## Request
+
+### Path Parameters
+
+<ParamField path="creatorId" type="string" required>
+  Unique identifier for the creator
+</ParamField>
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="platform" type="string">
+  Filter metrics by platform: `youtube`, `twitter`, `instagram`, `tiktok`, `linkedin`, or `all` for aggregated data
+</ParamField>
+
+<ParamField query="startDate" type="string">
+  Start date for metrics range (ISO 8601 format)
+</ParamField>
+
+<ParamField query="endDate" type="string">
+  End date for metrics range (ISO 8601 format)
+</ParamField>
+
+<ParamField query="granularity" type="string" default="daily">
+  Data granularity: `hourly`, `daily`, `weekly`, `monthly`
+</ParamField>
+
+<ParamField query="metrics" type="string">
+  Comma-separated list of metrics to include: `followers`, `engagement`, `posts`, `views`, `likes`, `comments`, `shares`
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  <Expandable title="Metrics Response">
+    <ResponseField name="creatorId" type="string">
+      Creator identifier
+    </ResponseField>
+    
+    <ResponseField name="platform" type="string">
+      Platform for these metrics
+    </ResponseField>
+    
+    <ResponseField name="dateRange" type="object">
+      <Expandable title="Date Range">
+        <ResponseField name="start" type="string">
+          Start date of metrics (ISO 8601)
+        </ResponseField>
+        
+        <ResponseField name="end" type="string">
+          End date of metrics (ISO 8601)
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="timeseries" type="array">
+      Array of time-series data points
+      
+      <Expandable title="Timeseries Data Point">
+        <ResponseField name="timestamp" type="string">
+          ISO 8601 timestamp
+        </ResponseField>
+        
+        <ResponseField name="followerCount" type="number">
+          Total followers at this timestamp
+        </ResponseField>
+        
+        <ResponseField name="followerGrowth" type="number">
+          Change in followers since previous data point
+        </ResponseField>
+        
+        <ResponseField name="engagementRate" type="number">
+          Engagement rate percentage
+        </ResponseField>
+        
+        <ResponseField name="engagementGrowth" type="number">
+          Change in engagement rate
+        </ResponseField>
+        
+        <ResponseField name="totalPosts" type="number">
+          Total number of posts
+        </ResponseField>
+        
+        <ResponseField name="avgLikes" type="number">
+          Average likes per post
+        </ResponseField>
+        
+        <ResponseField name="avgComments" type="number">
+          Average comments per post
+        </ResponseField>
+        
+        <ResponseField name="avgShares" type="number">
+          Average shares per post
+        </ResponseField>
+        
+        <ResponseField name="avgViews" type="number">
+          Average views per post
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="summary" type="object">
+      <Expandable title="Summary Statistics">
+        <ResponseField name="totalGrowth" type="number">
+          Total follower growth during period
+        </ResponseField>
+        
+        <ResponseField name="growthRate" type="number">
+          Percentage growth rate
+        </ResponseField>
+        
+        <ResponseField name="averageEngagement" type="number">
+          Average engagement rate during period
+        </ResponseField>
+        
+        <ResponseField name="peakEngagement" type="number">
+          Highest engagement rate during period
+        </ResponseField>
+        
+        <ResponseField name="totalPosts" type="number">
+          Total posts published during period
+        </ResponseField>
+        
+        <ResponseField name="postFrequency" type="number">
+          Average posts per week
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="analytics" type="object">
+      <Expandable title="Engagement Analytics">
+        <ResponseField name="peakEngagementHour" type="number">
+          Hour of day with highest engagement (0-23 UTC)
+        </ResponseField>
+        
+        <ResponseField name="peakEngagementDay" type="number">
+          Day of week with highest engagement (0-6, Sunday-Saturday)
+        </ResponseField>
+        
+        <ResponseField name="topPerformingContent" type="array">
+          Array of top-performing content IDs
+        </ResponseField>
+        
+        <ResponseField name="avgContentScore" type="number">
+          Average content performance score
+        </ResponseField>
+        
+        <ResponseField name="audienceActivityPattern" type="object">
+          Heatmap data for audience activity patterns
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+### Get 30-Day Metrics
+
+<Tabs>
+  <Tab title="TypeScript">
+    ```typescript
+    const creatorId = 'creator_123';
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const response = await fetch(
+      `https://your-domain.com/api/creators/${creatorId}/metrics?` +
+      new URLSearchParams({
+        platform: 'tiktok',
+        startDate: thirtyDaysAgo.toISOString(),
+        endDate: new Date().toISOString(),
+        granularity: 'daily'
+      }),
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`
+        }
+      }
+    );
+
+    const { data } = await response.json();
+    
+    console.log(`Total growth: ${data.summary.totalGrowth} followers`);
+    console.log(`Growth rate: ${data.summary.growthRate}%`);
+    console.log(`Average engagement: ${data.summary.averageEngagement}%`);
+    
+    // Plot timeseries data
+    data.timeseries.forEach(point => {
+      console.log(`${point.timestamp}: ${point.followerCount} followers, ${point.engagementRate}% engagement`);
+    });
+    ```
+  </Tab>
+  
+  <Tab title="JavaScript">
+    ```javascript
+    async function getCreatorMetrics(creatorId, days = 30) {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      
+      const params = new URLSearchParams({
+        platform: 'all',
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        granularity: 'daily',
+        metrics: 'followers,engagement,posts'
+      });
+      
+      const response = await fetch(
+        `https://your-domain.com/api/creators/${creatorId}/metrics?${params}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${process.env.API_KEY}`
+          }
+        }
+      );
+
+      return await response.json();
+    }
+
+    const metrics = await getCreatorMetrics('creator_123', 90);
+    console.log(metrics.data.summary);
+    ```
+  </Tab>
+  
+  <Tab title="cURL">
+    ```bash
+    curl "https://your-domain.com/api/creators/creator_123/metrics?platform=tiktok&startDate=2026-02-04T00:00:00Z&endDate=2026-03-06T00:00:00Z&granularity=daily" \
+      -H "Authorization: Bearer YOUR_API_KEY"
+    ```
+  </Tab>
+</Tabs>
+
+### Compare Platform Performance
+
+```typescript
+// Fetch metrics for multiple platforms
+const platforms = ['tiktok', 'instagram', 'youtube'];
+const metricsPromises = platforms.map(platform => 
+  fetch(
+    `https://your-domain.com/api/creators/${creatorId}/metrics?platform=${platform}&granularity=weekly`,
+    {
+      headers: { 'Authorization': `Bearer ${apiKey}` }
+    }
+  ).then(r => r.json())
+);
+
+const results = await Promise.all(metricsPromises);
+
+// Compare engagement rates
+const comparison = results.map((result, i) => ({
+  platform: platforms[i],
+  avgEngagement: result.data.summary.averageEngagement,
+  growthRate: result.data.summary.growthRate
+}));
+
+console.log('Platform Comparison:', comparison);
+```
+
+### Track Growth Trends
+
+```typescript
+interface GrowthAnalysis {
+  trend: 'increasing' | 'decreasing' | 'stable';
+  velocity: number;
+  acceleration: number;
+  prediction: {
+    next30Days: number;
+    confidence: number;
+  };
+}
+
+async function analyzeGrowthTrend(creatorId: string): Promise<GrowthAnalysis> {
+  const response = await fetch(
+    `https://your-domain.com/api/creators/${creatorId}/metrics?granularity=daily`,
+    {
+      headers: { 'Authorization': `Bearer ${apiKey}` }
+    }
+  );
+
+  const { data } = await response.json();
+  const series = data.timeseries;
+  
+  // Calculate growth velocity
+  const growthRates = series.map((point, i) => {
+    if (i === 0) return 0;
+    return point.followerGrowth;
+  }).slice(1);
+  
+  const avgVelocity = growthRates.reduce((a, b) => a + b, 0) / growthRates.length;
+  
+  // Calculate acceleration
+  const midpoint = Math.floor(growthRates.length / 2);
+  const firstHalf = growthRates.slice(0, midpoint);
+  const secondHalf = growthRates.slice(midpoint);
+  
+  const avgFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+  const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+  
+  const acceleration = avgSecond - avgFirst;
+  
+  // Determine trend
+  let trend: 'increasing' | 'decreasing' | 'stable';
+  if (Math.abs(acceleration) < avgVelocity * 0.1) {
+    trend = 'stable';
+  } else {
+    trend = acceleration > 0 ? 'increasing' : 'decreasing';
+  }
+  
+  // Simple linear projection
+  const prediction = avgVelocity * 30;
+  
+  return {
+    trend,
+    velocity: avgVelocity,
+    acceleration,
+    prediction: {
+      next30Days: Math.round(prediction),
+      confidence: Math.min(0.95, Math.max(0.5, 1 - Math.abs(acceleration / avgVelocity)))
+    }
+  };
+}
+
+const analysis = await analyzeGrowthTrend('creator_123');
+console.log('Growth Analysis:', analysis);
+```
+
+## Response Example
+
+```json
+{
+  "success": true,
+  "data": {
+    "creatorId": "creator_123",
+    "platform": "tiktok",
+    "dateRange": {
+      "start": "2026-02-04T00:00:00Z",
+      "end": "2026-03-06T00:00:00Z"
+    },
+    "timeseries": [
+      {
+        "timestamp": "2026-02-04T00:00:00Z",
+        "followerCount": 235000,
+        "followerGrowth": 0,
+        "engagementRate": 5.8,
+        "engagementGrowth": 0,
+        "totalPosts": 440,
+        "avgLikes": 2650,
+        "avgComments": 148,
+        "avgShares": 85,
+        "avgViews": 42000
+      },
+      {
+        "timestamp": "2026-02-05T00:00:00Z",
+        "followerCount": 235450,
+        "followerGrowth": 450,
+        "engagementRate": 6.1,
+        "engagementGrowth": 0.3,
+        "totalPosts": 442,
+        "avgLikes": 2720,
+        "avgComments": 152,
+        "avgShares": 89,
+        "avgViews": 43500
+      }
+      // ... more data points
+    ],
+    "summary": {
+      "totalGrowth": 15000,
+      "growthRate": 6.38,
+      "averageEngagement": 6.05,
+      "peakEngagement": 6.8,
+      "totalPosts": 16,
+      "postFrequency": 3.5
+    },
+    "analytics": {
+      "peakEngagementHour": 19,
+      "peakEngagementDay": 5,
+      "topPerformingContent": [
+        "video_789",
+        "video_823",
+        "video_801"
+      ],
+      "avgContentScore": 87.3,
+      "audienceActivityPattern": {
+        "hourly": {
+          "0": 0.3,
+          "1": 0.2,
+          "2": 0.1,
+          "19": 0.95,
+          "20": 0.88,
+          "21": 0.76
+        },
+        "daily": {
+          "0": 0.65,
+          "1": 0.72,
+          "5": 0.92,
+          "6": 0.88
+        }
+      }
+    }
+  }
+}
+```
+
+## Database Schema
+
+Metrics are stored in the `CreatorMetricsHistory` table (Prisma schema at `/prisma/schema.prisma:332-359`):
+
+```typescript
+model CreatorMetricsHistory {
+  id                String   @id @default(uuid())
+  creatorProfileId  String
+  platform          String
+  timestamp         DateTime @default(now())
+  
+  followerCount     Int      @default(0)
+  engagementRate    Float    @default(0)
+  totalPosts        Int      @default(0)
+  avgLikes          Float    @default(0)
+  avgComments       Float    @default(0)
+  avgShares         Float    @default(0)
+  avgViews          Float    @default(0)
+  
+  followerGrowth    Int      @default(0)
+  engagementGrowth  Float    @default(0)
+  
+  platformMetrics   Json?
+  
+  @@index([creatorProfileId, timestamp])
+  @@index([platform, timestamp])
+  @@index([timestamp])
+}
+```
+
+Engagement analytics are stored separately in `EngagementAnalytics` (Prisma schema at `/prisma/schema.prisma:361-389`).
+
+## Error Responses
+
+### Invalid Date Range
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Start date must be before end date"
+  }
+}
+```
+
+### No Data Available
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "No metrics data available for the specified date range"
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Trending Content" icon="fire" href="/api/discovery/trending">
+    Discover trending creators
+  </Card>
+  <Card title="Budget Tracking" icon="dollar" href="/api/budget/overview">
+    Monitor API costs
+  </Card>
+</CardGroup>

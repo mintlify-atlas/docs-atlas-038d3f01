@@ -1,0 +1,114 @@
+---
+title: Introduction
+description: Discover and analyze TikTok creators with powerful automation and analytics
+---
+
+# Welcome to TikTok Miner
+
+TikTok Miner is a comprehensive creator discovery and analytics platform that helps you find and evaluate content creators based on real engagement metrics and trending topics.
+
+## What is TikTok Miner?
+
+TikTok Miner automates the process of discovering high-performing content creators by:
+
+1. **Searching** TikTok using keywords and hashtags
+2. **Scraping** creator profiles and their recent content
+3. **Aggregating** 30-day engagement metrics (views, likes, comments, shares)
+4. **Analyzing** performance data in a real-time dashboard
+5. **Exporting** results for further analysis
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get up and running in under 5 minutes
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Step-by-step installation guide
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/introduction">
+    Explore the complete API documentation
+  </Card>
+  <Card title="CLI Tools" icon="terminal" href="/cli/overview">
+    Command-line tools for automation
+  </Card>
+</CardGroup>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Automated Discovery" icon="magnifying-glass" href="/features/creator-discovery">
+    Discover creators automatically using trending topics and keywords
+  </Card>
+  <Card title="30-Day Analytics" icon="chart-line" href="/features/analytics-dashboard">
+    View comprehensive 30-day engagement metrics for every creator
+  </Card>
+  <Card title="Multi-Platform Support" icon="grid" href="/platforms/tiktok">
+    Track creators across TikTok, Instagram, Twitter, and YouTube
+  </Card>
+  <Card title="Budget Management" icon="wallet" href="/advanced/budget-management">
+    Monitor and control API costs with built-in budget tracking
+  </Card>
+</CardGroup>
+
+## How It Works
+
+<Steps>
+  <Step title="Search for Creators">
+    Enter keywords, hashtags, or trending topics to search TikTok
+  </Step>
+  <Step title="Automatic Scraping">
+    The platform scrapes the top creators from search results using Apify
+  </Step>
+  <Step title="Metrics Aggregation">
+    Collects and aggregates engagement data from the last 30 days of posts
+  </Step>
+  <Step title="View & Export">
+    Browse results in the dashboard, filter by metrics, and export to CSV
+  </Step>
+</Steps>
+
+## Tech Stack
+
+TikTok Miner is built with modern, production-ready technologies:
+
+- **Frontend**: Next.js 14, React, TailwindCSS, shadcn/ui
+- **Backend**: Node.js, Prisma ORM, PostgreSQL
+- **Queue System**: BullMQ with Redis
+- **Scraping**: Apify actors for TikTok, Instagram, Twitter, YouTube
+- **Infrastructure**: Docker, Docker Compose
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Influencer Marketing">
+    Find creators in your niche with proven engagement rates for partnership opportunities
+  </Accordion>
+  <Accordion title="Competitive Analysis">
+    Track competitors' creator partnerships and identify emerging trends in your industry
+  </Accordion>
+  <Accordion title="Market Research">
+    Analyze creator performance across different topics and demographics
+  </Accordion>
+  <Accordion title="Content Strategy">
+    Identify trending topics and successful content formats to inform your strategy
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+Ready to get started? Check out these resources:
+
+<CardGroup cols={3}>
+  <Card title="Quickstart Guide" icon="play" href="/quickstart">
+    Set up your first search in minutes
+  </Card>
+  <Card title="Docker Deployment" icon="docker" href="/deployment/docker">
+    Deploy with Docker Compose
+  </Card>
+  <Card title="Environment Setup" icon="gear" href="/deployment/environment-variables">
+    Configure API keys and settings
+  </Card>
+</CardGroup>
+
+<Note>
+  TikTok Miner uses web scraping via Apify to collect public data. Make sure you have an Apify API token before getting started.
+</Note>

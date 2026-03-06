@@ -1,0 +1,700 @@
+---
+title: 'API Monitoring'
+description: 'Real-time monitoring, rate limiting, and alerting for API usage across all platforms'
+icon: 'chart-mixed'
+---
+
+# API Monitoring
+
+The API Monitoring system provides comprehensive tracking, rate limit management, and intelligent alerting for all external API services used by TikTok Miner.
+
+## Architecture
+
+```
+┌──────────────────┐
+│  API Request     │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ Usage Tracker    │  → Records metrics, calculates cost
+└────────┬─────────┘
+         │
+         ├─────┐ Check Rate Limits
+         │     └─→ ApiLimit (configured limits)
+         │
+         ├─────┐ Create Alerts
+         │     └─→ ApiAlert (threshold warnings)
+         │
+         └─────┐ Store Metrics
+               └─→ ApiUsage (historical data)
+```
+
+## Core Components
+
+### APIUsageTracker
+
+Tracks all API requests and calculates costs automatically.
+
+**Location:** `lib/services/api-usage-tracker.ts`
+
+### APIAlertManager
+
+Monitors usage patterns and triggers alerts based on configurable rules.
+
+**Location:** `lib/services/api-alert-manager.ts`
+
+## Tracking API Usage
+
+### Basic Usage Tracking
+
+```typescript
+import { APIUsageTracker } from './lib/services/api-usage-tracker';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+const tracker = new APIUsageTracker(prisma);
+
+// Track an API request
+const usage = await tracker.trackRequest({
+  platform: 'OpenAI',
+  model: 'gpt-4',
+  endpoint: '/v1/chat/completions',
+  tokensUsed: 2500,
+  cost: 0.15,  // Optional: auto-calculated if pricing exists
+  userId: 'user-123',
+  requestId: 'req-abc123',
+  responseTime: 1250,  // milliseconds
+  statusCode: 200
+});
+
+console.log(`Request tracked: ${usage.id}`);
+```
+
+**Location:** `lib/services/api-usage-tracker.ts:52-78`
+
+### Automatic Cost Calculation
+
+```typescript
+// Define pricing for a platform/model
+await prisma.apiPricing.create({
+  data: {
+    platform: 'OpenAI',
+    model: 'gpt-4',
+    pricePerToken: 0.00006,  // $0.06 per 1K tokens
+    pricingTier: 'standard',
+    isActive: true,
+    effectiveFrom: new Date()
+  }
+});
+
+// Cost is automatically calculated when tracking
+const cost = await tracker.calculateCost('OpenAI', 'gpt-4', 2500);
+console.log(`Cost: $${cost.toFixed(4)}`);  // $0.1500
+```
+
+**Location:** `lib/services/api-usage-tracker.ts:214-238`
+
+### Tracking Errors
+
+```typescript
+try {
+  const response = await callExternalAPI();
+  
+  await tracker.trackRequest({
+    platform: 'Anthropic',
+    model: 'claude-3-opus',
+    endpoint: '/v1/messages',
+    tokensUsed: response.usage.total_tokens,
+    statusCode: 200,
+    responseTime: Date.now() - startTime
+  });
+} catch (error) {
+  await tracker.trackRequest({
+    platform: 'Anthropic',
+    model: 'claude-3-opus',
+    endpoint: '/v1/messages',
+    statusCode: error.statusCode || 500,
+    error: error.message,
+    responseTime: Date.now() - startTime,
+    metadata: {
+      errorType: error.name,
+      stack: error.stack
+    }
+  });
+}
+```
+
+## Rate Limit Management
+
+### Configuring Rate Limits
+
+```typescript
+// Set rate limits for a platform
+await prisma.apiLimit.create({
+  data: {
+    platform: 'OpenAI',
+    model: 'gpt-4',
+    rateLimitHourly: 200,     // 200 requests per hour
+    rateLimitDaily: 3000,     // 3000 requests per day
+    tokenLimitHourly: 500000, // 500K tokens per hour
+    tokenLimitDaily: 5000000, // 5M tokens per day
+    isActive: true
+  }
+});
+```
+
+**Database Schema:** `prisma/schema.prisma:272-286`
+
+### Checking Rate Limit Status
+
+```typescript
+const status = await tracker.getRateLimitStatus('OpenAI', 'gpt-4');
+
+console.log('Rate Limit Status:');
+console.log(`Hourly: ${status.hourlyUsage}/${status.hourlyLimit}`);
+console.log(`Daily: ${status.dailyUsage}/${status.dailyLimit}`);
+console.log(`Token Usage: ${status.dailyTokenUsage}/${status.dailyTokenLimit}`);
+console.log(`Percentage Used: ${status.percentageUsed.toFixed(1)}%`);
+console.log(`Approaching Limit: ${status.isApproachingLimit}`);
+```
+
+**Location:** `lib/services/api-usage-tracker.ts:118-147`
+
+### Pre-Request Rate Limit Check
+
+```typescript
+async function safeAPICall() {
+  // Check rate limits before making request
+  const status = await tracker.getRateLimitStatus('OpenAI', 'gpt-4');
+  
+  if (status.percentageUsed >= 95) {
+    throw new Error(`Rate limit at ${status.percentageUsed.toFixed(1)}%, request blocked`);
+  }
+  
+  if (status.isApproachingLimit) {
+    console.warn('Approaching rate limit, consider throttling');
+  }
+  
+  // Proceed with API call
+  const response = await callOpenAI();
+  
+  // Track the request
+  await tracker.trackRequest({ ... });
+  
+  return response;
+}
+```
+
+### Usage in Time Windows
+
+```typescript
+// Get usage in last hour
+const hourlyUsage = await tracker.getUsageInWindow('OpenAI', '1h', 'gpt-4');
+console.log(`Requests: ${hourlyUsage.requests}`);
+console.log(`Tokens: ${hourlyUsage.tokens}`);
+console.log(`Cost: $${hourlyUsage.cost.toFixed(2)}`);
+
+// Get usage in last 24 hours
+const dailyUsage = await tracker.getUsageInWindow('OpenAI', '24h', 'gpt-4');
+console.log(`Daily Requests: ${dailyUsage.requests}`);
+console.log(`Daily Cost: $${dailyUsage.cost.toFixed(2)}`);
+```
+
+**Location:** `lib/services/api-usage-tracker.ts:80-116`
+
+## Alert System
+
+### Alert Types
+
+```typescript
+enum ApiAlertType {
+  RATE_LIMIT_WARNING,   // 80% of rate limit reached
+  RATE_LIMIT_CRITICAL,  // 95% of rate limit reached
+  COST_WARNING,         // 80% of cost budget reached
+  COST_CRITICAL,        // 95% of cost budget reached
+  ERROR_RATE_HIGH       // Error rate exceeds threshold
+}
+```
+
+**Database Schema:** `prisma/schema.prisma:321-327`
+
+### Default Alert Configuration
+
+```typescript
+const defaultAlerts = [
+  {
+    platform: 'all',
+    alertType: ApiAlertType.RATE_LIMIT_WARNING,
+    threshold: 80,           // Alert at 80%
+    window: '1h',            // Check hourly usage
+    cooldownMinutes: 60,     // Don't re-alert for 60 minutes
+    enabled: true
+  },
+  {
+    platform: 'all',
+    alertType: ApiAlertType.COST_CRITICAL,
+    threshold: 95,
+    window: '24h',
+    cooldownMinutes: 180,
+    enabled: true
+  },
+  {
+    platform: 'all',
+    alertType: ApiAlertType.ERROR_RATE_HIGH,
+    threshold: 10,           // Alert if 10% error rate
+    window: '1h',
+    cooldownMinutes: 120,
+    enabled: true
+  }
+];
+```
+
+**Location:** `lib/services/api-alert-manager.ts:25-36`
+
+### Evaluating Alerts
+
+```typescript
+import { APIAlertManager } from './lib/services/api-alert-manager';
+
+const alertManager = new APIAlertManager(prisma);
+
+// Evaluate all alert rules for a platform
+const alerts = await alertManager.evaluateAlerts('OpenAI');
+
+if (alerts.length > 0) {
+  console.log(`${alerts.length} alerts triggered:`);
+  alerts.forEach(alert => {
+    console.log(`[${alert.alertType}] ${alert.message}`);
+  });
+}
+```
+
+**Location:** `lib/services/api-alert-manager.ts:77-98`
+
+### Custom Alert Rules
+
+Create custom alert rules with complex logic:
+
+```typescript
+const customRule: AlertRule = {
+  name: 'Weekend Spike Detection',
+  description: 'Alert on unusual weekend activity',
+  evaluate: async (usage) => {
+    const isWeekend = [0, 6].includes(new Date().getDay());
+    return isWeekend && usage.current > usage.weekdayAverage * 2;
+  },
+  getMessage: (usage) => 
+    `Unusual weekend activity: ${usage.current} requests (${usage.weekdayAverage} typical)`,
+  alertType: ApiAlertType.RATE_LIMIT_WARNING,
+  severity: 'medium'
+};
+
+// Add custom rule
+alertManager.customRules.push(customRule);
+```
+
+**Location:** `lib/services/api-alert-manager.ts:38-71`
+
+### Alert Resolution
+
+```typescript
+// Resolve a specific alert
+await alertManager.resolveAlert(
+  alertId,
+  'Rate limit returned to normal levels'
+);
+
+// Resolve all alerts for a platform
+await tracker.resolveAlerts('OpenAI');
+
+// Resolve specific alert type
+await tracker.resolveAlerts('OpenAI', ApiAlertType.RATE_LIMIT_WARNING);
+```
+
+**Location:** `lib/services/api-alert-manager.ts:402-414`
+
+## Usage Statistics
+
+### Get Statistics for Time Period
+
+```typescript
+const stats = await tracker.getUsageStats(
+  'OpenAI',
+  new Date('2026-03-01'),
+  new Date('2026-03-06'),
+  'gpt-4'  // optional model filter
+);
+
+console.log('Usage Statistics:');
+console.log(`Total Requests: ${stats.totalRequests}`);
+console.log(`Total Tokens: ${stats.totalTokens.toLocaleString()}`);
+console.log(`Total Cost: $${stats.totalCost.toFixed(2)}`);
+console.log(`Avg Response Time: ${stats.averageResponseTime.toFixed(0)}ms`);
+console.log(`Error Rate: ${stats.errorRate.toFixed(2)}%`);
+```
+
+**Location:** `lib/services/api-usage-tracker.ts:167-212`
+
+### Cost Reports
+
+Generate cost reports grouped by different dimensions:
+
+```typescript
+// Group by platform
+const platformReport = await tracker.getCostReport(
+  new Date('2026-03-01'),
+  new Date('2026-03-31'),
+  'platform'
+);
+
+platformReport.forEach(item => {
+  console.log(`${item.key}: $${item.cost.toFixed(2)} (${item.requests} requests)`);
+});
+
+// Group by model
+const modelReport = await tracker.getCostReport(
+  startDate,
+  endDate,
+  'model'
+);
+
+// Group by day
+const dailyReport = await tracker.getCostReport(
+  startDate,
+  endDate,
+  'day'
+);
+
+dailyReport.forEach(item => {
+  console.log(`${item.key}: $${item.cost.toFixed(2)}`);
+});
+```
+
+**Location:** `lib/services/api-usage-tracker.ts:301-346`
+
+## Alert Statistics
+
+```typescript
+const alertStats = await alertManager.getAlertStats('OpenAI');
+
+console.log('Alert Statistics:');
+console.log(`Total Alerts: ${alertStats.totalAlerts}`);
+console.log(`Active Alerts: ${alertStats.activeAlerts}`);
+console.log(`Avg Resolution Time: ${alertStats.avgResolutionTime.toFixed(1)} minutes`);
+
+console.log('\nAlerts by Type:');
+Object.entries(alertStats.alertsByType).forEach(([type, count]) => {
+  console.log(`${type}: ${count}`);
+});
+```
+
+**Location:** `lib/services/api-alert-manager.ts:435-478`
+
+## Database Schema
+
+### ApiUsage Model
+
+Stores all API request metrics:
+
+```prisma
+model ApiUsage {
+  id                String      @id @default(uuid())
+  platform          String      // OpenAI, Anthropic, Google, etc.
+  model             String?     // gpt-4, claude-3, etc.
+  endpoint          String      // API endpoint called
+  timestamp         DateTime    @default(now())
+  tokensUsed        Int?        @default(0)
+  cost              Float       @default(0)
+  userId            String?
+  requestId         String?     @unique
+  responseTime      Int?        // milliseconds
+  statusCode        Int?
+  error             String?     @db.Text
+  metadata          Json?
+  
+  @@index([platform, timestamp])
+  @@index([userId])
+  @@index([createdAt])
+}
+```
+
+**Location:** `prisma/schema.prisma:249-270`
+
+### ApiLimit Model
+
+```prisma
+model ApiLimit {
+  id                String      @id @default(uuid())
+  platform          String
+  model             String?
+  rateLimitHourly   Int?        // Requests per hour
+  rateLimitDaily    Int?        // Requests per day
+  tokenLimitHourly  Int?        // Tokens per hour
+  tokenLimitDaily   Int?        // Tokens per day
+  isActive          Boolean     @default(true)
+  
+  @@unique([platform, model])
+  @@index([platform])
+}
+```
+
+**Location:** `prisma/schema.prisma:272-286`
+
+### ApiAlert Model
+
+```prisma
+model ApiAlert {
+  id                String      @id @default(uuid())
+  platform          String
+  alertType         ApiAlertType
+  threshold         Float       // Percentage threshold
+  message           String      @db.Text
+  isResolved        Boolean     @default(false)
+  resolvedAt        DateTime?
+  metadata          Json?
+  createdAt         DateTime    @default(now())
+  
+  @@index([platform, alertType, isResolved])
+  @@index([createdAt])
+}
+```
+
+**Location:** `prisma/schema.prisma:305-319`
+
+## Integration Examples
+
+### OpenAI Integration
+
+```typescript
+import OpenAI from 'openai';
+import { APIUsageTracker } from './lib/services/api-usage-tracker';
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const tracker = new APIUsageTracker(prisma);
+
+async function callOpenAI(prompt: string) {
+  const startTime = Date.now();
+  const requestId = `req-${Date.now()}`;
+  
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [{ role: 'user', content: prompt }]
+    });
+    
+    // Track successful request
+    await tracker.trackRequest({
+      platform: 'OpenAI',
+      model: 'gpt-4',
+      endpoint: '/v1/chat/completions',
+      tokensUsed: response.usage?.total_tokens || 0,
+      requestId,
+      responseTime: Date.now() - startTime,
+      statusCode: 200,
+      userId: 'system',
+      metadata: {
+        promptTokens: response.usage?.prompt_tokens,
+        completionTokens: response.usage?.completion_tokens
+      }
+    });
+    
+    return response;
+  } catch (error: any) {
+    // Track failed request
+    await tracker.trackRequest({
+      platform: 'OpenAI',
+      model: 'gpt-4',
+      endpoint: '/v1/chat/completions',
+      requestId,
+      responseTime: Date.now() - startTime,
+      statusCode: error.status || 500,
+      error: error.message,
+      userId: 'system'
+    });
+    
+    throw error;
+  }
+}
+```
+
+### Apify Integration
+
+```typescript
+import { ApifyClient } from 'apify-client';
+
+const client = new ApifyClient({ token: process.env.APIFY_TOKEN });
+
+async function runApifyActor(actorId: string, input: any) {
+  const startTime = Date.now();
+  
+  try {
+    const run = await client.actor(actorId).call(input);
+    
+    // Track Apify run
+    await tracker.trackRequest({
+      platform: 'Apify',
+      endpoint: `/v2/acts/${actorId}/runs`,
+      cost: run.stats.costUsd || 0,
+      responseTime: Date.now() - startTime,
+      statusCode: run.status === 'SUCCEEDED' ? 200 : 500,
+      metadata: {
+        runId: run.id,
+        datasetItemCount: run.stats.datasetItemCount,
+        memoryUsageMb: run.stats.memoryUsageMb
+      }
+    });
+    
+    return run;
+  } catch (error: any) {
+    await tracker.trackRequest({
+      platform: 'Apify',
+      endpoint: `/v2/acts/${actorId}/runs`,
+      responseTime: Date.now() - startTime,
+      statusCode: 500,
+      error: error.message
+    });
+    
+    throw error;
+  }
+}
+```
+
+## Monitoring Dashboard
+
+### Real-Time Monitoring
+
+```typescript
+async function monitoringDashboard() {
+  const platforms = ['OpenAI', 'Anthropic', 'Apify'];
+  
+  for (const platform of platforms) {
+    console.log(`\n=== ${platform} ===`);
+    
+    // Current rate limit status
+    const rateLimitStatus = await tracker.getRateLimitStatus(platform);
+    console.log(`Rate Limit: ${rateLimitStatus.percentageUsed.toFixed(1)}%`);
+    
+    // Recent usage
+    const hourlyUsage = await tracker.getUsageInWindow(platform, '1h');
+    console.log(`Hourly: ${hourlyUsage.requests} requests, $${hourlyUsage.cost.toFixed(2)}`);
+    
+    // Active alerts
+    const alerts = await prisma.apiAlert.findMany({
+      where: { platform, isResolved: false },
+      orderBy: { createdAt: 'desc' },
+      take: 3
+    });
+    
+    if (alerts.length > 0) {
+      console.log(`Active Alerts: ${alerts.length}`);
+      alerts.forEach(alert => console.log(`  - ${alert.message}`));
+    }
+  }
+}
+
+// Run every 5 minutes
+setInterval(monitoringDashboard, 5 * 60 * 1000);
+```
+
+## Best Practices
+
+### 1. Always Track Requests
+
+```typescript
+// Good: Track every request
+async function makeAPICall() {
+  try {
+    const result = await externalAPI.call();
+    await tracker.trackRequest({ /* success metrics */ });
+    return result;
+  } catch (error) {
+    await tracker.trackRequest({ /* error metrics */ });
+    throw error;
+  }
+}
+```
+
+### 2. Check Rate Limits Proactively
+
+```typescript
+// Good: Check before making expensive calls
+if ((await tracker.getRateLimitStatus('OpenAI')).percentageUsed >= 90) {
+  // Implement backoff or queue the request
+  return queueRequest(request);
+}
+```
+
+### 3. Set Up Automated Alerts
+
+```typescript
+// Run alert evaluation regularly
+setInterval(async () => {
+  await alertManager.evaluateAlerts();
+}, 5 * 60 * 1000);  // Every 5 minutes
+```
+
+### 4. Monitor Error Rates
+
+```typescript
+const stats = await tracker.getUsageStats(
+  'OpenAI',
+  last24Hours,
+  now
+);
+
+if (stats.errorRate > 5) {
+  console.error(`High error rate detected: ${stats.errorRate.toFixed(1)}%`);
+  // Take action: pause operations, alert team, etc.
+}
+```
+
+<Accordion title="FAQ: API Monitoring">
+
+**Q: How long is usage data retained?**
+
+A: By default, `ApiUsage` records are retained indefinitely for cost tracking and analytics. Consider archiving old data (>90 days) to a data warehouse if database size becomes an issue.
+
+**Q: Can I set different rate limits for different users?**
+
+A: Currently, rate limits are per platform/model. To implement per-user limits, extend the `ApiLimit` model to include a `userId` field and modify the rate limit checking logic.
+
+**Q: How are alerts sent?**
+
+A: Alerts are stored in the database and logged. Implement notification channels (email, Slack, webhook) in the `sendNotifications` method at `lib/services/api-alert-manager.ts:352-364`.
+
+**Q: What happens if rate limit checking fails?**
+
+A: Rate limit checking is best-effort. If it fails, the request proceeds normally but the error is logged. Always track the actual request result for accurate metrics.
+
+**Q: Can I retroactively calculate costs?**
+
+A: Yes, if you have `tokensUsed` but not `cost` in existing records:
+
+```typescript
+const usage = await prisma.apiUsage.findMany({ where: { cost: 0 } });
+for (const record of usage) {
+  const cost = await tracker.calculateCost(
+    record.platform,
+    record.model,
+    record.tokensUsed
+  );
+  await prisma.apiUsage.update({
+    where: { id: record.id },
+    data: { cost }
+  });
+}
+```
+
+**Q: How do I set up cost budgets?**
+
+A: Use the [Budget Management](/advanced/budget-management) system, which integrates with API monitoring through `CostAllocation` records linked to `ApiUsage`.
+
+</Accordion>
+
+## Next Steps
+
+- Set up [Budget Management](/advanced/budget-management) for cost control
+- Configure alert notifications for your team
+- Build custom dashboards with the monitoring APIs
+- Integrate monitoring into your [CLI Tools](/advanced/cli-tools)

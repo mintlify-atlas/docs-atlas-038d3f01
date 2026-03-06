@@ -1,0 +1,367 @@
+---
+title: "TikTok Integration"
+description: "Learn how to integrate TikTok data collection into your TikTok Miner application using Apify actors"
+---
+
+## Overview
+
+TikTok Miner uses the Apify TikTok scraper to collect profile data, engagement metrics, and video content from TikTok. This integration provides a powerful alternative to the official TikTok API, which has limited availability for third-party developers.
+
+## How It Works
+
+The TikTok integration operates through the `TikTokApifyService` class, which orchestrates:
+
+1. **Profile Scraping**: Collects user profile information, follower counts, and verification status
+2. **Video Data**: Retrieves recent videos with engagement metrics (likes, comments, shares, views)
+3. **Search Capabilities**: Discovers creators by keywords and hashtags
+4. **Data Transformation**: Converts raw Apify data into unified TikTok Miner format
+
+### Architecture
+
+```
+TikTokApifyService → ActorManager → ApifyClient → Apify API
+                ↓
+        TikTokTransformer → UnifiedCreatorData → TiktokMetrics (Database)
+```
+
+The service is located at:
+- **Service**: `lib/services/tiktok-apify-service.ts`
+- **Actor Manager**: `lib/apify/actor-manager.ts`
+- **Transformers**: `lib/apify/transformers.ts`
+- **Database Schema**: `prisma/schema.prisma` (TiktokMetrics model)
+
+## Configuration
+
+### Required Environment Variables
+
+```bash
+# Apify API Configuration
+APIFY_API_KEY=your_apify_api_key_here
+APIFY_BASE_URL=https://api.apify.com
+APIFY_DEFAULT_TIMEOUT_SECS=300
+APIFY_MAX_RETRIES=3
+
+# TikTok Scraper Actor
+APIFY_TIKTOK_SCRAPER_ID=GdWCkxBtKWOsKjdch
+```
+
+### Service Initialization
+
+```typescript
+import { TikTokApifyService } from '@/lib/services/tiktok-apify-service';
+
+const tiktokService = new TikTokApifyService({
+  apifyApiKey: process.env.APIFY_API_KEY!,
+  enableCaching: true,
+  cacheTTL: 3600000, // 1 hour in milliseconds
+  maxVideosPerProfile: 30,
+  maxRetries: 3,
+});
+```
+
+## Data Collection
+
+### Profile Metrics
+
+The TikTok integration collects the following metrics stored in the `TiktokMetrics` table:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `followerCount` | Int | Total number of followers |
+| `followingCount` | Int | Total number of accounts followed |
+| `videoCount` | Int | Total number of videos posted |
+| `heartCount` | BigInt | Total likes across all videos |
+| `averageViews` | Int | Average views per video |
+| `averageLikes` | Int | Average likes per video |
+| `averageComments` | Int | Average comments per video |
+| `averageShares` | Int | Average shares per video |
+| `engagementRate` | Float | Calculated engagement rate (%) |
+| `totalViews` | BigInt | Cumulative views across all content |
+| `dailyViewGrowth` | Float | Daily view growth rate (optional) |
+| `dailyFollowerGrowth` | Float | Daily follower growth rate (optional) |
+
+### Profile Data Model
+
+```typescript
+interface TikTokUser {
+  id: string;
+  uniqueId: string;        // username
+  nickname: string;        // display name
+  avatarUrl: string;
+  signature: string;       // bio
+  followerCount: number;
+  followingCount: number;
+  heartCount: number;      // total likes
+  videoCount: number;
+  verified: boolean;
+  privateAccount: boolean;
+  profileUrl: string;
+}
+```
+
+## Usage Examples
+
+<Tabs>
+  <Tab title="Fetch User Profile">
+    ```typescript
+    import { TikTokApifyService } from '@/lib/services/tiktok-apify-service';
+
+    // Initialize service
+    const service = new TikTokApifyService({
+      apifyApiKey: process.env.APIFY_API_KEY!,
+      enableCaching: true,
+      cacheTTL: 3600000,
+    });
+
+    // Fetch profile
+    const profile = await service.getUserProfile('khaby.lame');
+
+    console.log({
+      username: profile.uniqueId,
+      followers: profile.followerCount,
+      verified: profile.verified,
+      totalLikes: profile.heartCount,
+    });
+    ```
+  </Tab>
+
+  <Tab title="Get Video Insights">
+    ```typescript
+    // Fetch recent videos with pagination
+    const videosResponse = await service.getUserVideos(
+      'khaby.lame',
+      30,  // limit
+      undefined  // cursor for pagination
+    );
+
+    // Calculate insights
+    const insights = await service.getUserInsights('khaby.lame');
+
+    console.log({
+      averageLikes: insights.averageLikes,
+      averageViews: insights.averageViews,
+      engagementRate: insights.engagementRate.toFixed(2) + '%',
+      viewToFollowerRatio: insights.viewToFollowerRatio.toFixed(2),
+    });
+    ```
+  </Tab>
+
+  <Tab title="Search Creators">
+    ```typescript
+    // Search for creators by keywords
+    const creators = await service.searchProfiles(
+      ['tech', 'programming', 'coding'],
+      50  // limit
+    );
+
+    // Filter by follower count
+    const topCreators = creators
+      .filter(c => c.followerCount > 100000)
+      .sort((a, b) => b.followerCount - a.followerCount)
+      .slice(0, 10);
+
+    topCreators.forEach(creator => {
+      console.log(`@${creator.uniqueId}: ${creator.followerCount} followers`);
+    });
+    ```
+  </Tab>
+
+  <Tab title="Store in Database">
+    ```typescript
+    import { prisma } from '@/lib/db';
+    import { processCreatorProfile } from '@/lib/apify';
+
+    // Fetch and transform profile
+    const profile = await service.getUserProfile('khaby.lame');
+    const insights = await service.getUserInsights('khaby.lame');
+
+    // Create creator profile
+    const creatorProfile = await prisma.creatorProfile.create({
+      data: {
+        name: profile.nickname,
+        bio: profile.signature,
+        profileImageUrl: profile.avatarUrl,
+        isVerified: profile.verified,
+        platformIdentifiers: {
+          tiktok_username: profile.uniqueId,
+        },
+        totalReach: profile.followerCount,
+        averageEngagementRate: insights.engagementRate,
+        tiktokMetrics: {
+          create: {
+            userId: profile.id,
+            username: profile.uniqueId,
+            nickname: profile.nickname,
+            profileUrl: profile.profileUrl,
+            bio: profile.signature,
+            isVerified: profile.verified,
+            followerCount: profile.followerCount,
+            followingCount: profile.followingCount,
+            videoCount: profile.videoCount,
+            heartCount: profile.heartCount,
+            averageViews: Math.round(insights.averageViews),
+            averageLikes: Math.round(insights.averageLikes),
+            averageComments: Math.round(insights.averageComments),
+            averageShares: Math.round(insights.averageShares),
+            engagementRate: insights.engagementRate,
+          },
+        },
+      },
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## Rate Limits & Quotas
+
+### Apify Rate Limits
+
+The TikTok scraper runs on Apify's infrastructure with the following considerations:
+
+- **Concurrent Runs**: Limited by your Apify subscription tier
+- **Compute Units**: Charges apply per actor run based on execution time and memory
+- **Default Timeout**: 300 seconds (5 minutes) per run
+- **Memory Allocation**: 512 MB by default (configurable)
+
+### Cost Management
+
+```typescript
+// Configure run options to optimize costs
+const input: TikTokScraperInput = {
+  profiles: [`https://www.tiktok.com/@${username}`],
+  resultsPerPage: 30,  // Limit data fetched
+  maxProfilesPerQuery: 1,
+  proxyConfiguration: {
+    useApifyProxy: true,
+  },
+};
+
+const runOptions = {
+  timeoutSecs: 180,    // Shorter timeout
+  memoryMbytes: 512,   // Adequate for most profiles
+};
+```
+
+### Best Practices
+
+<Warning>
+  **Avoid hitting TikTok rate limits** by:
+  - Implementing exponential backoff on retries
+  - Using Apify's proxy rotation (included in scraper)
+  - Caching results when possible
+  - Scheduling bulk operations during off-peak hours
+</Warning>
+
+```typescript
+// Enable caching to reduce API calls
+const service = new TikTokApifyService({
+  apifyApiKey: process.env.APIFY_API_KEY!,
+  enableCaching: true,
+  cacheTTL: 3600000,  // Cache for 1 hour
+});
+
+// Track costs using ApifyRunMetrics
+import { prisma } from '@/lib/db';
+
+const runMetrics = await prisma.apifyRunMetrics.create({
+  data: {
+    actorId: 'GdWCkxBtKWOsKjdch',
+    platform: 'tiktok',
+    status: 'SUCCEEDED',
+    startedAt: new Date(),
+    costUsd: 0.05,  // Track actual cost
+  },
+});
+```
+
+## Error Handling
+
+```typescript
+try {
+  const profile = await service.getUserProfile(username);
+} catch (error) {
+  if (error.message.includes('No TikTok profile data found')) {
+    // Handle profile not found
+    console.log('Profile does not exist or is private');
+  } else if (error.message.includes('timeout')) {
+    // Handle timeout
+    console.log('Scraper timed out - try again later');
+  } else {
+    // Handle other errors
+    console.error('Failed to fetch profile:', error);
+  }
+}
+```
+
+## Data Quality
+
+The `TiktokTransformer` class ensures data quality through:
+
+1. **Sanitization**: Usernames, bios, and URLs are cleaned
+2. **Validation**: Data is validated against Zod schemas
+3. **Normalization**: Metrics are normalized to consistent types
+4. **Fallbacks**: Default values prevent null pointer errors
+
+```typescript
+// Validation is automatic in the transformation pipeline
+const result = await processCreatorProfile('tiktok', apifyProfile);
+
+if (result.success) {
+  // Data is validated and safe to use
+  const unifiedData = result.data;
+} else {
+  // Handle validation errors
+  console.error('Validation failed:', result.errors);
+}
+```
+
+## Monitoring & Alerts
+
+Track your TikTok scraping performance:
+
+```typescript
+import { prisma } from '@/lib/db';
+
+// Monitor data quality
+const qualityMetrics = await prisma.apifyDataQualityMetrics.create({
+  data: {
+    platform: 'tiktok',
+    totalItemsProcessed: 100,
+    validItemsCount: 95,
+    invalidItemsCount: 5,
+    duplicateItemsCount: 2,
+    validationErrors: [
+      { username: 'user1', error: 'Missing follower count' },
+    ],
+  },
+});
+
+// Set up alerts for failures
+const alert = await prisma.apifyAlert.create({
+  data: {
+    platform: 'tiktok',
+    severity: 'HIGH',
+    alertType: 'FAILURE_RATE',
+    message: 'TikTok scraper failure rate exceeds 10%',
+    conditions: { threshold: 0.1, actual: 0.15 },
+  },
+});
+```
+
+## Limitations
+
+<Note>
+  **TikTok Scraper Limitations:**
+  - No access to private account data
+  - Video insights are limited to publicly available metrics
+  - OAuth flow is not supported (scraping-based approach)
+  - Real-time data may have a slight delay
+  - Detailed analytics require TikTok Business API (not included)
+</Note>
+
+## Next Steps
+
+- [Configure Instagram Integration](/platforms/instagram)
+- [Set Up Twitter Scraping](/platforms/twitter)
+- [YouTube Channel Analysis](/platforms/youtube)
+- [Budget Management](/advanced/budget-management)

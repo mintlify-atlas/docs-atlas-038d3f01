@@ -1,0 +1,183 @@
+---
+title: CLI Overview
+description: Introduction to the TikTok Miner command-line interface
+---
+
+## Introduction
+
+The TikTok Miner CLI is a powerful command-line tool for managing creator discovery, database operations, and platform analytics. Built with Commander.js and TypeScript, it provides developers and analysts with direct access to the TikTok Miner platform's core functionality.
+
+## Installation
+
+The CLI is bundled with the TikTok Miner application. To use it:
+
+```bash
+bun cli/index.ts <command> [options]
+```
+
+Or use the npm script:
+
+```bash
+npm run cli <command> [options]
+```
+
+## Available Commands
+
+The CLI is organized into several command groups:
+
+### Creator Management
+- **creators** - Manage and analyze creator profiles across platforms
+- Search creators by platform, engagement metrics, or category
+- Export creator data in various formats
+- Update creator profiles and sync platform data
+
+### Discovery Operations
+- **discovery** - Run automated creator discovery pipelines
+- Discover trending topics and creators
+- Explore content categories across platforms
+- Monitor discovery queue status and metrics
+
+### Database Operations
+- **query-db** - Query and explore database contents
+- Execute custom SQL queries
+- Search for creators, repositories, and job descriptions
+- View related data with automatic joins
+
+## Global Options
+
+All commands support these global options:
+
+```bash
+-V, --version        Output the version number
+-h, --help          Display help for command
+```
+
+## Environment Configuration
+
+The CLI requires environment variables to be configured. Create a `.env` file in the project root:
+
+```bash
+DATABASE_URL=postgresql://user:password@localhost:5432/tiktok_miner
+DIRECT_URL=postgresql://user:password@localhost:5432/tiktok_miner
+
+# Platform API Keys (optional, for discovery features)
+YOUTUBE_API_KEY=your_key_here
+TWITTER_API_KEY=your_key_here
+INSTAGRAM_API_KEY=your_key_here
+TIKTOK_API_KEY=your_key_here
+```
+
+## Quick Start
+
+### Query Database
+
+Search for a creator by username:
+
+```bash
+bun cli/index.ts query-db --username john_doe
+```
+
+### View All Creators
+
+List all creators with a limit:
+
+```bash
+bun cli/index.ts query-db --limit 10
+```
+
+### Execute Raw SQL
+
+Run a custom query:
+
+```bash
+bun cli/index.ts query-db "SELECT * FROM CreatorProfile WHERE totalReach > 100000"
+```
+
+## Command Structure
+
+Commands follow this general pattern:
+
+```bash
+tiktok-miner <command> [subcommand] [options] [arguments]
+```
+
+### Examples
+
+```bash
+# Database query with options
+tiktok-miner query-db --username creator123 --repos
+
+# Discovery with topic
+tiktok-miner discovery trending --topic fitness --platform instagram
+
+# Creator search
+tiktok-miner creators search --category tech --min-followers 10000
+```
+
+## Output Formats
+
+The CLI supports multiple output formats:
+
+- **Table** (default) - Pretty-printed tables in the terminal
+- **JSON** - Machine-readable JSON output
+- **CSV** - Export data to CSV files
+
+## Error Handling
+
+The CLI provides detailed error messages:
+
+```bash
+# Database connection error
+Error: DATABASE_URL is not defined
+
+# Invalid query
+Error executing query: Invalid SQL syntax
+
+# Rate limit error
+Error: Platform API rate limit exceeded. Try again in 15 minutes.
+```
+
+## Logging
+
+The CLI logs operations to the console with severity levels:
+
+- **INFO** - Normal operations and progress
+- **WARN** - Non-critical issues
+- **ERROR** - Failures and exceptions
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Database Commands" icon="database" href="/cli/database">
+    Query and explore database contents
+  </Card>
+  <Card title="Creator Commands" icon="user" href="/cli/creators">
+    Manage creator profiles and analytics
+  </Card>
+  <Card title="Discovery Commands" icon="magnifying-glass" href="/cli/discovery">
+    Automate creator discovery pipelines
+  </Card>
+</CardGroup>
+
+## Common Workflows
+
+### Discovering New Creators
+
+1. Run trending discovery for a topic
+2. Review quality scores and metrics
+3. Add approved creators to database
+4. Schedule regular sync jobs
+
+### Analyzing Creator Performance
+
+1. Query creators by engagement metrics
+2. Export data for analysis
+3. Compare cross-platform performance
+4. Generate performance reports
+
+### Managing Data
+
+1. Query database for specific creators
+2. Update profile information
+3. Sync latest platform metrics
+4. Clean up duplicate entries

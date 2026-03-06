@@ -1,0 +1,394 @@
+---
+title: 'Analytics Dashboard'
+description: 'View and analyze TikTok creator performance metrics'
+icon: 'chart-line'
+---
+
+The Analytics Dashboard provides comprehensive insights into creator performance, engagement metrics, and audience analytics. Track key metrics across all your TikTok creators in one centralized view.
+
+## Dashboard Overview
+
+Access the dashboard at `/creators` to view all tracked creators:
+
+<img src="/images/analytics-dashboard.png" alt="Analytics Dashboard" />
+
+<CardGroup cols={3}>
+  <Card title="Total Creators" icon="users">
+    Track the total number of creators across all platforms
+  </Card>
+  
+  <Card title="Average Followers" icon="trending-up">
+    Monitor aggregate follower counts and growth trends
+  </Card>
+  
+  <Card title="Average Engagement" icon="heart">
+    Track overall engagement rates across your creator portfolio
+  </Card>
+</CardGroup>
+
+## Key Metrics
+
+The dashboard tracks essential performance metrics for each creator:
+
+### Profile Metrics
+
+```typescript
+// From components/creators/browse-creators-tab.tsx
+interface CreatorMetrics {
+  username: string
+  nickName: string
+  followerCount: number
+  posts30d: number        // Posts in last 30 days
+  views30d: number        // Total views in last 30 days
+  likes30d: number        // Total likes in last 30 days
+  comments30d: number     // Total comments in last 30 days
+  shares30d: number       // Total shares in last 30 days
+  engagementRate: number  // Calculated engagement percentage
+  verified: boolean
+  lastUpdated: Date
+}
+```
+
+### Engagement Calculations
+
+```typescript
+// From lib/services/tiktok-apify-service.ts
+async getUserInsights(username: string): Promise<TikTokEngagementMetrics> {
+  const profile = await this.getUserProfile(username)
+  const videosResponse = await this.getUserVideos(username, 50)
+  const videos = videosResponse.data
+
+  // Calculate averages
+  const averageLikes = videos.reduce((sum, v) => sum + v.stats.diggCount, 0) / videos.length
+  const averageComments = videos.reduce((sum, v) => sum + v.stats.commentCount, 0) / videos.length
+  const averageShares = videos.reduce((sum, v) => sum + v.stats.shareCount, 0) / videos.length
+  const averageViews = videos.reduce((sum, v) => sum + v.stats.playCount, 0) / videos.length
+
+  // Calculate engagement rate
+  const engagementRate = profile.followerCount > 0
+    ? ((averageLikes + averageComments + averageShares) / profile.followerCount) * 100
+    : 0
+
+  return {
+    averageLikes,
+    averageComments,
+    averageShares,
+    averageViews,
+    engagementRate,
+    viewToFollowerRatio: averageViews / profile.followerCount
+  }
+}
+```
+
+## Data Table Features
+
+The dashboard uses a powerful data table component:
+
+```typescript
+// Interactive data table with sorting and filtering
+<DataTable
+  columns={tiktokColumns}
+  data={creators}
+  loading={isLoading}
+  onRowSelectionChange={handleSelection}
+  enableRowSelection={true}
+/>
+```
+
+### Table Capabilities
+
+<Steps>
+  <Step title="Sorting">
+    Click any column header to sort creators by that metric. Supports ascending and descending order.
+    
+    ```typescript
+    const handleSortingChange = (newSorting: any[]) => {
+      const sort = newSorting[0]
+      if (sort) {
+        params.append('sortBy', sort.id)
+        params.append('sortOrder', sort.desc ? 'desc' : 'asc')
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Filtering">
+    Filter creators by:
+    - Search query (username or name)
+    - Category (content niche)
+    - Follower range (min/max)
+    - Verification status
+  </Step>
+
+  <Step title="Pagination">
+    Large datasets are automatically paginated for performance. The system loads up to 10,000 creators per page.
+  </Step>
+
+  <Step title="Row Selection">
+    Select multiple creators for bulk actions like export or status updates.
+  </Step>
+</Steps>
+
+## Search and Filters
+
+The dashboard includes powerful search and filtering:
+
+```typescript
+// Search input
+<Input
+  placeholder="Search creators..."
+  value={searchQuery}
+  onChange={(e) => setSearchQuery(e.target.value)}
+/>
+
+// Category filter
+<Select value={categoryFilter} onValueChange={setCategoryFilter}>
+  <SelectTrigger>
+    <SelectValue placeholder="All categories" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="all">All Categories</SelectItem>
+    {categories.map(cat => (
+      <SelectItem key={cat.value} value={cat.value}>
+        {cat.value} ({cat.count})
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+
+// Follower range filter
+<Input
+  type="number"
+  placeholder="Min followers"
+  value={minFollowers || ''}
+  onChange={(e) => setMinFollowers(parseInt(e.target.value))}
+/>
+<Input
+  type="number"
+  placeholder="Max followers"
+  value={maxFollowers || ''}
+  onChange={(e) => setMaxFollowers(parseInt(e.target.value))}
+/>
+```
+
+## Real-time Data Updates
+
+The dashboard uses SWR for automatic data revalidation:
+
+```typescript
+import useSWR from 'swr'
+
+const { data, error, isLoading, mutate } = useSWR(
+  swrKey,
+  async () => {
+    const response = await fetch(`/api/creators?${params}`)
+    return response.json()
+  },
+  {
+    revalidateOnFocus: false,
+    dedupingInterval: 0,
+  }
+)
+
+// Manual refresh
+const handleRefresh = async () => {
+  setIsRefreshing(true)
+  await mutate()
+  setIsRefreshing(false)
+}
+```
+
+## Creator Profiles
+
+Click any creator to view their detailed profile page:
+
+### Profile Header
+
+- Profile picture
+- Username and display name
+- Verification badge
+- Platform badges
+- Total followers
+- Profile bio
+
+### Metrics Cards
+
+<CardGroup cols={4}>
+  <Card title="Followers" icon="users">
+    Total follower count with growth indicators
+  </Card>
+  
+  <Card title="Engagement Rate" icon="heart">
+    Average engagement percentage
+  </Card>
+  
+  <Card title="Avg Views" icon="eye">
+    Average views per video
+  </Card>
+  
+  <Card title="Post Frequency" icon="calendar">
+    Posts per week/month
+  </Card>
+</CardGroup>
+
+### Recent Content
+
+View the creator's recent posts with metrics:
+
+```typescript
+// Recent content table
+<VideoPerformanceTable videos={recentVideos} />
+```
+
+Each video shows:
+- Thumbnail
+- Caption/description
+- Views, likes, comments, shares
+- Post date
+- Engagement rate
+- Link to original video
+
+## Performance Analytics
+
+The dashboard includes advanced analytics views:
+
+### Platform Distribution
+
+```typescript
+<PieChart>
+  <Pie
+    data={platformData}
+    dataKey="count"
+    nameKey="platform"
+    label={({ platform, count }) => `${platform}: ${count}`}
+  />
+</PieChart>
+```
+
+### Engagement Trends
+
+```typescript
+<LineChart data={engagementHistory}>
+  <XAxis dataKey="date" />
+  <YAxis />
+  <Line type="monotone" dataKey="engagement" stroke="#10b981" />
+  <Tooltip />
+</LineChart>
+```
+
+### Category Performance
+
+```typescript
+<BarChart data={categoryData}>
+  <XAxis dataKey="category" />
+  <YAxis />
+  <Bar dataKey="avgEngagement" fill="#3b82f6" />
+  <Tooltip />
+</BarChart>
+```
+
+## Top Performers
+
+View the highest-performing creators:
+
+```typescript
+// From creator-analysis-dashboard.tsx
+const topCreators = [...creators]
+  .sort((a, b) => b.engagementRate - a.engagementRate)
+  .slice(0, 10)
+
+// Display top performers
+{topCreators.map((creator, index) => (
+  <div key={creator.id} className="flex items-center justify-between">
+    <div className="flex items-center space-x-3">
+      <div className="w-8 h-8 bg-blue-100 rounded-full">
+        <span>#{index + 1}</span>
+      </div>
+      <div>
+        <div className="font-semibold">{creator.name}</div>
+        <div className="text-sm">{creator.platform} • {creator.category}</div>
+      </div>
+    </div>
+    <div className="flex items-center space-x-4">
+      <div>
+        <div className="font-semibold">{formatNumber(creator.followers)}</div>
+        <div className="text-sm">followers</div>
+      </div>
+      <div>
+        <div className="font-semibold">{formatPercent(creator.engagementRate)}</div>
+        <div className="text-sm">engagement</div>
+      </div>
+    </div>
+  </div>
+))}
+```
+
+## Sync Status
+
+Track when creator data was last updated:
+
+```typescript
+// Sync status indicator
+<SyncStatusIndicator 
+  lastSync={creator.lastUpdated}
+  status={creator.syncStatus}
+/>
+```
+
+Status values:
+- **Synced**: Data is up to date
+- **Syncing**: Currently refreshing data
+- **Stale**: Data needs refresh
+- **Error**: Last sync failed
+
+## Export Functionality
+
+Export creator data directly from the dashboard:
+
+```typescript
+// Export button
+<Button onClick={() => setShowExportDialog(true)}>
+  <Download className="h-4 w-4 mr-2" />
+  Export ({selectedRows.size})
+</Button>
+
+// Export dialog
+<ExportDialog
+  open={showExportDialog}
+  onOpenChange={setShowExportDialog}
+  creatorIds={Array.from(selectedRows)}
+  onExportComplete={handleExportComplete}
+/>
+```
+
+See [Data Export](/features/data-export) for detailed export options.
+
+## Best Practices
+
+<Tip>
+  Refresh creator data regularly to ensure metrics are up to date. Set up automated refresh schedules for active campaigns.
+</Tip>
+
+<Warning>
+  Large datasets (10,000+ creators) may take time to load. Use filters to narrow down the view for better performance.
+</Warning>
+
+<Tip>
+  Use the sort and filter features to quickly identify top performers or creators that need attention.
+</Tip>
+
+## Related Features
+
+<CardGroup cols={3}>
+  <Card title="Creator Discovery" icon="compass" href="/features/creator-discovery">
+    Discover new creators automatically
+  </Card>
+  
+  <Card title="Data Export" icon="download" href="/features/data-export">
+    Export creator data in multiple formats
+  </Card>
+  
+  <Card title="Keyword Search" icon="search" href="/features/keyword-search">
+    Search for specific creators
+  </Card>
+</CardGroup>

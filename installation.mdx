@@ -1,0 +1,666 @@
+---
+title: Installation
+description: Complete installation guide for TikTok Miner
+icon: download
+---
+
+This guide covers everything you need to install and configure TikTok Miner for development or production use.
+
+## System Requirements
+
+### Minimum Requirements
+
+- **Node.js**: 18.x or higher
+- **Package Manager**: Bun 1.2.5+ (recommended), npm, yarn, or pnpm
+- **PostgreSQL**: 14 or higher
+- **Redis**: 7 or higher
+- **Memory**: 2GB RAM minimum, 4GB recommended
+- **Storage**: 10GB free space
+
+### Recommended Setup
+
+- **OS**: Linux, macOS, or Windows with WSL2
+- **Node.js**: 20.x LTS
+- **PostgreSQL**: 15 or 16
+- **Redis**: 7.2 or higher
+- **Memory**: 8GB RAM
+
+## Installation Methods
+
+<Tabs>
+  <Tab title="Docker (Recommended)">
+    ### Docker Installation
+    
+    The easiest way to get started is with Docker Compose, which includes all dependencies.
+    
+    #### Prerequisites
+    
+    - [Docker](https://docs.docker.com/get-docker/) 20.10 or higher
+    - [Docker Compose](https://docs.docker.com/compose/install/) 2.0 or higher
+    
+    #### Setup Steps
+    
+    <Steps>
+      <Step title="Clone Repository">
+        ```bash
+        git clone <repository-url>
+        cd tiktok-miner
+        ```
+      </Step>
+      
+      <Step title="Configure Environment">
+        Create your environment file:
+        
+        ```bash
+        cp .env.example .env
+        ```
+        
+        Edit `.env` with your credentials:
+        
+        ```bash .env
+        # Database Configuration
+        DB_PASSWORD=your_secure_database_password
+        
+        # Redis Configuration
+        REDIS_PASSWORD=your_secure_redis_password
+        
+        # Required API Keys
+        OPENAI_API_KEY=sk-your-openai-key
+        GITHUB_TOKEN=ghp_your-github-token
+        
+        # Supabase (for authentication)
+        NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+        NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+        
+        # Optional: Social Media APIs
+        TIKTOK_CLIENT_KEY=your-tiktok-key
+        TIKTOK_CLIENT_SECRET=your-tiktok-secret
+        INSTAGRAM_CLIENT_ID=your-instagram-id
+        INSTAGRAM_CLIENT_SECRET=your-instagram-secret
+        TWITTER_BEARER_TOKEN=your-twitter-token
+        YOUTUBE_API_KEY=your-youtube-key
+        ```
+        
+        <Warning>
+          Never commit your `.env` file to version control. Keep your API keys secure.
+        </Warning>
+      </Step>
+      
+      <Step title="Start Services">
+        Launch all services:
+        
+        ```bash
+        docker-compose up -d
+        ```
+        
+        This starts:
+        - **PostgreSQL** on port 5432
+        - **Redis** on port 6379
+        - **TikTok Miner App** on port 3000
+        - **Pipeline Worker** (background processing)
+      </Step>
+      
+      <Step title="Verify Installation">
+        Check service status:
+        
+        ```bash
+        docker-compose ps
+        ```
+        
+        View logs:
+        
+        ```bash
+        docker-compose logs -f app
+        ```
+        
+        Test the application:
+        
+        ```bash
+        curl http://localhost:3000/api/health
+        ```
+      </Step>
+    </Steps>
+    
+    #### Optional Services
+    
+    Enable optional services with profiles:
+    
+    ```bash
+    # Start with pgAdmin for database management
+    docker-compose --profile development up -d
+    
+    # Start with Nginx reverse proxy
+    docker-compose --profile production up -d
+    ```
+    
+    **pgAdmin** will be available at `http://localhost:5050`:
+    - Email: `admin@tiktok-miner.local` (or set `PGADMIN_EMAIL`)
+    - Password: `admin` (or set `PGADMIN_PASSWORD`)
+  </Tab>
+  
+  <Tab title="Local Development">
+    ### Local Installation
+    
+    For development or when you prefer to run services individually.
+    
+    #### Step 1: Install Dependencies
+    
+    First, install Node.js and your preferred package manager:
+    
+    <CodeGroup>
+      ```bash Bun (Recommended)
+      # Install Bun
+      curl -fsSL https://bun.sh/install | bash
+      
+      # Install project dependencies
+      bun install
+      ```
+      
+      ```bash npm
+      # Install with npm
+      npm install
+      ```
+      
+      ```bash yarn
+      # Install with Yarn
+      yarn install
+      ```
+      
+      ```bash pnpm
+      # Install with pnpm
+      pnpm install
+      ```
+    </CodeGroup>
+    
+    #### Step 2: Set Up PostgreSQL
+    
+    <Accordion title="Option A: Local PostgreSQL">
+      Install PostgreSQL on your system:
+      
+      <CodeGroup>
+        ```bash macOS
+        brew install postgresql@15
+        brew services start postgresql@15
+        ```
+        
+        ```bash Ubuntu/Debian
+        sudo apt update
+        sudo apt install postgresql-15
+        sudo systemctl start postgresql
+        ```
+        
+        ```bash Windows
+        # Download installer from:
+        # https://www.postgresql.org/download/windows/
+        ```
+      </CodeGroup>
+      
+      Create the database:
+      
+      ```sql
+      CREATE DATABASE tiktok_miner;
+      CREATE USER tiktok_miner_user WITH PASSWORD 'your_password';
+      GRANT ALL PRIVILEGES ON DATABASE tiktok_miner TO tiktok_miner_user;
+      ```
+    </Accordion>
+    
+    <Accordion title="Option B: Supabase (Recommended)">
+      Use Supabase for managed PostgreSQL with built-in auth:
+      
+      1. Create a free account at [supabase.com](https://supabase.com)
+      2. Create a new project
+      3. Copy your connection strings from **Settings → Database**
+      4. Use the "Connection Pooling" URL for `DATABASE_URL`
+      5. Use the "Direct Connection" URL for `DIRECT_URL`
+      
+      Your `.env` should have:
+      ```bash
+      DATABASE_URL="postgresql://postgres.xxx:[email protected]:6543/postgres?pgbouncer=true&connection_limit=1&pool_timeout=0"
+      DIRECT_URL="postgresql://postgres.xxx:[email protected]:5432/postgres"
+      ```
+    </Accordion>
+    
+    #### Step 3: Set Up Redis
+    
+    <CodeGroup>
+      ```bash macOS
+      brew install redis
+      brew services start redis
+      ```
+      
+      ```bash Ubuntu/Debian
+      sudo apt update
+      sudo apt install redis-server
+      sudo systemctl start redis-server
+      ```
+      
+      ```bash Docker
+      docker run -d --name redis -p 6379:6379 redis:7-alpine
+      ```
+    </CodeGroup>
+    
+    Test Redis connection:
+    ```bash
+    redis-cli ping
+    # Should return: PONG
+    ```
+    
+    #### Step 4: Configure Environment
+    
+    Copy and configure your environment:
+    
+    ```bash
+    cp .env.example .env
+    ```
+    
+    Edit `.env` with your settings. See [Environment Variables](#environment-variables) for details.
+    
+    #### Step 5: Run Database Migrations
+    
+    <CodeGroup>
+      ```bash Bun
+      bun x prisma generate
+      bun x prisma migrate deploy
+      ```
+      
+      ```bash npm
+      npx prisma generate
+      npx prisma migrate deploy
+      ```
+      
+      ```bash yarn
+      yarn prisma generate
+      yarn prisma migrate deploy
+      ```
+    </CodeGroup>
+    
+    <Note>
+      The `prisma generate` command creates the TypeScript client for database access. Run it whenever you update the schema.
+    </Note>
+    
+    #### Step 6: Start Development Server
+    
+    <CodeGroup>
+      ```bash Bun
+      bun run dev
+      ```
+      
+      ```bash npm
+      npm run dev
+      ```
+      
+      ```bash yarn
+      yarn dev
+      ```
+    </CodeGroup>
+    
+    The app will be available at `http://localhost:3000`
+  </Tab>
+  
+  <Tab title="Production Deployment">
+    ### Production Deployment
+    
+    For production environments, follow these best practices:
+    
+    #### Step 1: Build the Application
+    
+    <CodeGroup>
+      ```bash Bun
+      bun run build
+      ```
+      
+      ```bash npm
+      npm run build
+      ```
+    </CodeGroup>
+    
+    #### Step 2: Configure Environment
+    
+    Set production environment variables:
+    
+    ```bash .env.production
+    NODE_ENV=production
+    
+    # Use production database
+    DATABASE_URL="postgresql://..."
+    DIRECT_URL="postgresql://..."
+    
+    # Production URLs
+    NEXT_PUBLIC_APP_URL=https://your-domain.com
+    NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+    
+    # Secure passwords
+    DB_PASSWORD=strong_random_password
+    REDIS_PASSWORD=strong_random_password
+    ```
+    
+    #### Step 3: Start Production Server
+    
+    <CodeGroup>
+      ```bash Docker Compose
+      docker-compose --profile production up -d
+      ```
+      
+      ```bash Manual
+      bun run start
+      ```
+      
+      ```bash PM2
+      pm2 start npm --name "tiktok-miner" -- start
+      ```
+    </CodeGroup>
+    
+    #### Step 4: Configure Reverse Proxy
+    
+    Use Nginx as a reverse proxy (included in Docker setup):
+    
+    ```nginx nginx.conf
+    server {
+        listen 80;
+        server_name your-domain.com;
+        
+        location / {
+            proxy_pass http://app:3000;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_cache_bypass $http_upgrade;
+        }
+    }
+    ```
+    
+    <Warning>
+      Always use HTTPS in production. Configure SSL certificates with Let's Encrypt or your certificate provider.
+    </Warning>
+  </Tab>
+</Tabs>
+
+## Environment Variables
+
+Complete reference of environment variables:
+
+### Database Configuration
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string with pgBouncer |
+| `DIRECT_URL` | Yes | Direct PostgreSQL connection for migrations |
+| `PASSWORD` | No | Database password (legacy) |
+
+**Example:**
+```bash
+DATABASE_URL="postgresql://postgres.xxx:[email protected]:6543/postgres?pgbouncer=true&connection_limit=1&pool_timeout=0"
+DIRECT_URL="postgresql://postgres.xxx:[email protected]:5432/postgres"
+```
+
+### Supabase Configuration
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Your Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
+
+### AI Configuration
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|----------|
+| `OPENAI_API_KEY` | Yes | OpenAI API key | - |
+| `OPENAI_MODEL` | No | Model to use | `gpt-4o` |
+| `OPENAI_TEMPERATURE` | No | Response randomness (0-1) | `0.7` |
+| `OPENAI_MIN_CONFIDENCE` | No | Minimum confidence threshold | `0.5` |
+
+### GitHub Configuration
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GITHUB_TOKEN` | Recommended | GitHub personal access token |
+| `GITHUB_TOKENS` | No | Comma-separated tokens for load balancing |
+| `GITHUB_TOKEN_LB_STRATEGY` | No | Load balancing strategy |
+
+### Social Media APIs
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TIKTOK_CLIENT_KEY` | No | TikTok API client key |
+| `TIKTOK_CLIENT_SECRET` | No | TikTok API client secret |
+| `INSTAGRAM_CLIENT_ID` | No | Instagram API client ID |
+| `INSTAGRAM_CLIENT_SECRET` | No | Instagram API client secret |
+| `TWITTER_BEARER_TOKEN` | No | Twitter API bearer token |
+| `YOUTUBE_API_KEY` | No | YouTube Data API key |
+
+### Email Configuration
+
+<Tabs>
+  <Tab title="SMTP">
+    | Variable | Required | Description |
+    |----------|----------|-------------|
+    | `SMTP_HOST` | No | SMTP server host |
+    | `SMTP_PORT` | No | SMTP server port (465 or 587) |
+    | `SMTP_USER` | No | SMTP username |
+    | `SMTP_PASSWORD` | No | SMTP password |
+    | `SMTP_SECURE` | No | Use SSL/TLS (true for 465) |
+    | `SMTP_AUTH_METHOD` | No | Authentication method |
+  </Tab>
+  
+  <Tab title="Azure">
+    | Variable | Required | Description |
+    |----------|----------|-------------|
+    | `AZURE_EMAIL_CONNECTION_STRING` | No | Azure Communication Services connection string |
+  </Tab>
+</Tabs>
+
+### Application Configuration
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|----------|
+| `NEXT_PUBLIC_APP_URL` | Yes | Application URL | `http://localhost:3000` |
+| `LOG_LEVEL` | No | Logging level | `info` |
+| `NODE_ENV` | No | Environment | `development` |
+| `PORT` | No | Server port | `3000` |
+
+## Database Schema
+
+TikTok Miner uses Prisma ORM with the following main models:
+
+### Creator Profiles
+
+```prisma
+model CreatorProfile {
+  id                      String   @id @default(uuid())
+  name                    String
+  email                   String?
+  bio                     String?
+  profileImageUrl         String?
+  category                String?
+  tags                    String[]
+  isVerified              Boolean  @default(false)
+  platformIdentifiers     Json
+  compositeEngagementScore Float?
+  totalReach              Int
+  averageEngagementRate   Float?
+  contentFrequency        Float?
+  audienceQualityScore    Float?
+  lastSync                DateTime @default(now())
+  syncStatus              SyncStatus @default(PENDING)
+  
+  // Relations
+  youtubeMetrics          YoutubeMetrics?
+  twitterMetrics          TwitterMetrics?
+  instagramMetrics        InstagramMetrics?
+  tiktokMetrics           TiktokMetrics?
+  metricsHistory          CreatorMetricsHistory[]
+  engagementAnalytics     EngagementAnalytics[]
+}
+```
+
+### TikTok Metrics
+
+```prisma
+model TiktokMetrics {
+  id                String   @id @default(uuid())
+  creatorProfileId  String   @unique
+  userId            String   @unique
+  followerCount     Int
+  followingCount    Int
+  videoCount        Int
+  heartCount        BigInt
+  averageViews      Int
+  averageLikes      Int
+  averageComments   Int
+  averageShares     Int
+  engagementRate    Float
+  username          String   @unique
+  nickname          String?
+  profileUrl        String
+  bio               String?
+  isVerified        Boolean
+  totalViews        BigInt
+  dailyViewGrowth   Float?
+  dailyFollowerGrowth Float?
+}
+```
+
+### Budget Management
+
+TikTok Miner includes comprehensive budget tracking:
+
+```prisma
+model Budget {
+  id                String         @id @default(uuid())
+  name              String
+  budgetType        BudgetType
+  totalAmount       Float
+  spentAmount       Float
+  remainingAmount   Float
+  startDate         DateTime
+  endDate           DateTime
+  status            BudgetStatus
+  alertThreshold80  Boolean
+  alertThreshold90  Boolean
+  alertThreshold100 Boolean
+  autoRenewal       Boolean
+}
+```
+
+For the complete schema, see `prisma/schema.prisma` in the repository.
+
+## Verification
+
+Verify your installation:
+
+### Check Database Connection
+
+```bash
+bun x prisma db pull
+```
+
+### Test API Health
+
+```bash
+curl http://localhost:3000/api/health
+```
+
+### Run Tests
+
+<CodeGroup>
+  ```bash All Tests
+  bun run test:all
+  ```
+  
+  ```bash Unit Tests
+  bun run test
+  ```
+  
+  ```bash Integration Tests
+  bun run test:integration
+  ```
+  
+  ```bash E2E Tests
+  bun run test:e2e
+  ```
+</CodeGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Run your first creator search in 5 minutes
+  </Card>
+  
+  <Card title="Environment Variables" icon="gear" href="/deployment/environment-variables">
+    Deep dive into configuration options
+  </Card>
+  
+  <Card title="CLI Tools" icon="terminal" href="/cli/overview">
+    Learn about command-line tools
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/introduction">
+    Explore the REST API
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### Common Issues
+
+<AccordionGroup>
+  <Accordion title="Prisma generate fails">
+    This usually means the database connection is incorrect or unreachable.
+    
+    **Solutions:**
+    - Verify `DATABASE_URL` and `DIRECT_URL` are correct
+    - Check PostgreSQL is running
+    - Test connection: `psql $DATABASE_URL`
+    - Ensure database exists
+  </Accordion>
+  
+  <Accordion title="Port already in use">
+    Another service is using port 3000.
+    
+    **Solutions:**
+    - Stop the conflicting service
+    - Change port: `PORT=3001 bun run dev`
+    - In Docker: Update `docker-compose.yml` ports section
+  </Accordion>
+  
+  <Accordion title="Redis connection refused">
+    Redis is not running or not accessible.
+    
+    **Solutions:**
+    - Start Redis: `redis-server`
+    - Check if running: `redis-cli ping`
+    - Verify REDIS_URL in `.env`
+    - Check firewall rules for port 6379
+  </Accordion>
+  
+  <Accordion title="Supabase authentication errors">
+    Supabase configuration is incorrect.
+    
+    **Solutions:**
+    - Verify `NEXT_PUBLIC_SUPABASE_URL` matches your project
+    - Check `NEXT_PUBLIC_SUPABASE_ANON_KEY` is valid
+    - Ensure Supabase project is active
+    - Test in Supabase dashboard first
+  </Accordion>
+  
+  <Accordion title="Migration errors">
+    Database schema doesn't match expected state.
+    
+    **Solutions:**
+    - Reset database: `bun x prisma migrate reset`
+    - Check migration history: `bun x prisma migrate status`
+    - Apply pending migrations: `bun x prisma migrate deploy`
+    - Use DIRECT_URL for migrations, not pooled connection
+  </Accordion>
+</AccordionGroup>
+
+### Getting Help
+
+If you're still having issues:
+
+- Check the logs: `docker-compose logs -f` or `tail -f logs/dev.log`
+- Review the [Docker Deployment](/deployment/docker) troubleshooting section
+- Check [Database Setup](/deployment/database-setup) for migration issues
+- Search [GitHub Issues](https://github.com/aquaright1/tiktok-minor/issues)

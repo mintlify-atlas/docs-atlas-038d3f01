@@ -1,0 +1,602 @@
+---
+title: 'Environment Variables'
+description: 'Complete reference for all environment variables in TikTok Miner'
+icon: 'gear'
+---
+
+## Overview
+
+TikTok Miner requires several environment variables for database connections, API integrations, and application configuration. This guide documents all available variables, their purposes, and whether they are required or optional.
+
+## Quick Setup
+
+Copy the example environment file:
+
+```bash
+cp app/.env.example app/.env
+```
+
+Then configure the variables below based on your deployment needs.
+
+## Database Configuration
+
+### PostgreSQL Connection
+
+<ParamField path="DATABASE_URL" type="string" required>
+  Connection string for the PostgreSQL database. Used for connection pooling.
+  
+  **Format**: `postgresql://USER:PASSWORD@HOST:PORT/DATABASE?pgbouncer=true&connection_limit=1&pool_timeout=0`
+  
+  **Example**:
+  ```bash
+  DATABASE_URL="postgresql://tiktok_miner_user:your-password@localhost:5432/tiktok_miner?pgbouncer=true&connection_limit=1"
+  ```
+  
+  <Note>
+    For Supabase users, this should use the pooler URL with port 6543.
+  </Note>
+</ParamField>
+
+<ParamField path="DIRECT_URL" type="string" required>
+  Direct connection to PostgreSQL, used for running migrations.
+  
+  **Format**: `postgresql://USER:PASSWORD@HOST:PORT/DATABASE`
+  
+  **Example**:
+  ```bash
+  DIRECT_URL="postgresql://tiktok_miner_user:your-password@localhost:5432/tiktok_miner"
+  ```
+  
+  <Warning>
+    For Supabase, use port 5432 (not the pooler port) for migrations.
+  </Warning>
+</ParamField>
+
+<ParamField path="PASSWORD" type="string" required>
+  Database password used in connection strings.
+  
+  **Example**:
+  ```bash
+  PASSWORD=your-secure-database-password
+  ```
+</ParamField>
+
+### Redis Configuration
+
+<ParamField path="REDIS_URL" type="string" required>
+  Redis connection URL for job queues and caching.
+  
+  **Format**: `redis://[username][:password]@host:port[/database]`
+  
+  **Example**:
+  ```bash
+  REDIS_URL="redis://:your-redis-password@localhost:6379"
+  ```
+  
+  <Note>
+    The REDIS_URL is automatically configured in docker-compose.yml but needs to be set for local development.
+  </Note>
+</ParamField>
+
+## Supabase Configuration
+
+<ParamField path="NEXT_PUBLIC_SUPABASE_URL" type="string" required>
+  Your Supabase project URL.
+  
+  **Example**:
+  ```bash
+  NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+  ```
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_SUPABASE_ANON_KEY" type="string" required>
+  Supabase anonymous/public API key.
+  
+  **Example**:
+  ```bash
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+  ```
+  
+  <Info>
+    This key is safe to use in client-side code as it has limited permissions.
+  </Info>
+</ParamField>
+
+## AI & LLM Configuration
+
+### OpenAI
+
+<ParamField path="OPENAI_API_KEY" type="string" required>
+  OpenAI API key for AI-powered features like creator analysis and content categorization.
+  
+  **Example**:
+  ```bash
+  OPENAI_API_KEY=sk-proj-...
+  ```
+  
+  <Warning>
+    Never commit this key to version control. Keep it secret.
+  </Warning>
+</ParamField>
+
+<ParamField path="OPENAI_MODEL" type="string" default="gpt-4o">
+  OpenAI model to use for text generation.
+  
+  **Options**: `gpt-4o`, `gpt-4-turbo`, `gpt-4`, `gpt-3.5-turbo`
+  
+  **Example**:
+  ```bash
+  OPENAI_MODEL=gpt-4o
+  ```
+</ParamField>
+
+<ParamField path="OPENAI_TEMPERATURE" type="number" default="0.7">
+  Controls randomness in AI responses. Range: 0.0 to 2.0
+  
+  - Lower values (0.0-0.3): More focused and deterministic
+  - Medium values (0.4-0.7): Balanced creativity
+  - Higher values (0.8-2.0): More creative and varied
+  
+  **Example**:
+  ```bash
+  OPENAI_TEMPERATURE=0.7
+  ```
+</ParamField>
+
+<ParamField path="OPENAI_MIN_CONFIDENCE" type="number" default="0.5">
+  Minimum confidence threshold for AI predictions. Range: 0.0 to 1.0
+  
+  **Example**:
+  ```bash
+  OPENAI_MIN_CONFIDENCE=0.5
+  ```
+</ParamField>
+
+### Perplexity AI
+
+<ParamField path="PERPLEXITY_API_KEY" type="string">
+  Perplexity API key for enhanced research and discovery features.
+  
+  **Example**:
+  ```bash
+  PERPLEXITY_API_KEY=pplx-...
+  ```
+</ParamField>
+
+## GitHub Integration
+
+<ParamField path="GITHUB_TOKEN" type="string" required>
+  GitHub personal access token for API access and rate limit management.
+  
+  **Permissions needed**: `public_repo`, `read:user`
+  
+  **Example**:
+  ```bash
+  GITHUB_TOKEN=ghp_...
+  ```
+  
+  <Info>
+    Generate tokens at: https://github.com/settings/tokens
+  </Info>
+</ParamField>
+
+<ParamField path="GITHUB_TOKENS" type="string">
+  Multiple GitHub tokens for load balancing (comma-separated).
+  
+  **Example**:
+  ```bash
+  GITHUB_TOKENS=ghp_token1,ghp_token2,ghp_token3
+  ```
+  
+  <Note>
+    Using multiple tokens helps avoid rate limits on high-traffic deployments.
+  </Note>
+</ParamField>
+
+<ParamField path="GITHUB_TOKEN_LB_STRATEGY" type="string" default="ROUND_ROBIN">
+  Load balancing strategy for multiple GitHub tokens.
+  
+  **Options**: `ROUND_ROBIN`
+  
+  **Example**:
+  ```bash
+  GITHUB_TOKEN_LB_STRATEGY=ROUND_ROBIN
+  ```
+</ParamField>
+
+## Social Media API Keys
+
+### TikTok
+
+<ParamField path="TIKTOK_CLIENT_KEY" type="string" required>
+  TikTok API client key for accessing TikTok data.
+  
+  **Example**:
+  ```bash
+  TIKTOK_CLIENT_KEY=your-client-key
+  ```
+  
+  <Info>
+    Register your app at: https://developers.tiktok.com/
+  </Info>
+</ParamField>
+
+<ParamField path="TIKTOK_CLIENT_SECRET" type="string" required>
+  TikTok API client secret.
+  
+  **Example**:
+  ```bash
+  TIKTOK_CLIENT_SECRET=your-client-secret
+  ```
+</ParamField>
+
+### Instagram
+
+<ParamField path="INSTAGRAM_CLIENT_ID" type="string">
+  Instagram/Facebook Graph API client ID.
+  
+  **Example**:
+  ```bash
+  INSTAGRAM_CLIENT_ID=your-instagram-client-id
+  ```
+  
+  <Info>
+    Create an app at: https://developers.facebook.com/
+  </Info>
+</ParamField>
+
+<ParamField path="INSTAGRAM_CLIENT_SECRET" type="string">
+  Instagram/Facebook Graph API client secret.
+  
+  **Example**:
+  ```bash
+  INSTAGRAM_CLIENT_SECRET=your-instagram-secret
+  ```
+</ParamField>
+
+### Twitter/X
+
+<ParamField path="TWITTER_BEARER_TOKEN" type="string">
+  Twitter API v2 bearer token for read-only access.
+  
+  **Example**:
+  ```bash
+  TWITTER_BEARER_TOKEN=AAAAAAAAAAAAAAAAAAAAAMLheAAAAAAA...
+  ```
+  
+  <Info>
+    Get your bearer token from: https://developer.twitter.com/
+  </Info>
+</ParamField>
+
+### YouTube
+
+<ParamField path="YOUTUBE_API_KEY" type="string">
+  YouTube Data API v3 key.
+  
+  **Example**:
+  ```bash
+  YOUTUBE_API_KEY=AIzaSy...
+  ```
+  
+  <Info>
+    Create API credentials at: https://console.cloud.google.com/
+  </Info>
+</ParamField>
+
+## Email Configuration
+
+### Azure Email Service
+
+<ParamField path="AZURE_EMAIL_CONNECTION_STRING" type="string">
+  Azure Communication Services connection string for sending emails.
+  
+  **Format**: `endpoint=https://...;accesskey=...`
+  
+  **Example**:
+  ```bash
+  AZURE_EMAIL_CONNECTION_STRING="endpoint=https://your-communication.communication.azure.com/;accesskey=your-key"
+  ```
+</ParamField>
+
+### SMTP Configuration
+
+<ParamField path="SMTP_HOST" type="string">
+  SMTP server hostname.
+  
+  **Example**:
+  ```bash
+  SMTP_HOST=smtp.gmail.com
+  ```
+</ParamField>
+
+<ParamField path="SMTP_PORT" type="number">
+  SMTP server port.
+  
+  **Common values**:
+  - `465`: SSL/TLS
+  - `587`: STARTTLS
+  - `25`: Unencrypted (not recommended)
+  
+  **Example**:
+  ```bash
+  SMTP_PORT=465
+  ```
+</ParamField>
+
+<ParamField path="SMTP_USER" type="string">
+  SMTP authentication username (usually your email address).
+  
+  **Example**:
+  ```bash
+  SMTP_USER=your-email@gmail.com
+  ```
+</ParamField>
+
+<ParamField path="SMTP_PASSWORD" type="string">
+  SMTP authentication password or app-specific password.
+  
+  **Example**:
+  ```bash
+  SMTP_PASSWORD=your-app-password
+  ```
+  
+  <Warning>
+    For Gmail, use an app-specific password, not your account password.
+  </Warning>
+</ParamField>
+
+<ParamField path="SMTP_SECURE" type="boolean" default="true">
+  Use SSL/TLS for SMTP connection.
+  
+  - `true`: Port 465 (SSL)
+  - `false`: Port 587 (STARTTLS)
+  
+  **Example**:
+  ```bash
+  SMTP_SECURE=true
+  ```
+</ParamField>
+
+<ParamField path="SMTP_AUTH_METHOD" type="string" default="login">
+  SMTP authentication method.
+  
+  **Options**: `login`, `plain`, `cram-md5`
+  
+  **Example**:
+  ```bash
+  SMTP_AUTH_METHOD=login
+  ```
+</ParamField>
+
+## Application Configuration
+
+<ParamField path="NODE_ENV" type="string" default="development">
+  Node.js environment mode.
+  
+  **Options**: `development`, `production`, `test`
+  
+  **Example**:
+  ```bash
+  NODE_ENV=production
+  ```
+</ParamField>
+
+<ParamField path="PORT" type="number" default="3000">
+  Port number for the application server.
+  
+  **Example**:
+  ```bash
+  PORT=3000
+  ```
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_APP_URL" type="string" required>
+  Public URL where the application is hosted. Used for OAuth redirects and email links.
+  
+  **Example**:
+  ```bash
+  # Development
+  NEXT_PUBLIC_APP_URL=http://localhost:3000
+  
+  # Production
+  NEXT_PUBLIC_APP_URL=https://your-domain.com
+  ```
+</ParamField>
+
+<ParamField path="LOG_LEVEL" type="string" default="info">
+  Logging verbosity level.
+  
+  **Options**: `debug`, `info`, `warn`, `error`
+  
+  **Example**:
+  ```bash
+  LOG_LEVEL=debug
+  ```
+  
+  <Info>
+    Use `debug` for development and `info` or `warn` for production.
+  </Info>
+</ParamField>
+
+## pgAdmin Configuration (Development)
+
+<ParamField path="PGADMIN_EMAIL" type="string" default="admin@tiktok-miner.local">
+  Email for pgAdmin login (development only).
+  
+  **Example**:
+  ```bash
+  PGADMIN_EMAIL=admin@localhost
+  ```
+</ParamField>
+
+<ParamField path="PGADMIN_PASSWORD" type="string" default="admin">
+  Password for pgAdmin login (development only).
+  
+  **Example**:
+  ```bash
+  PGADMIN_PASSWORD=secure-password
+  ```
+</ParamField>
+
+## Environment-Specific Examples
+
+### Development Environment
+
+```bash
+# Database
+PASSWORD=dev_password
+DATABASE_URL="postgresql://tiktok_miner_user:dev_password@localhost:5432/tiktok_miner"
+DIRECT_URL="postgresql://tiktok_miner_user:dev_password@localhost:5432/tiktok_miner"
+REDIS_URL="redis://localhost:6379"
+
+# Supabase (if using)
+NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-local-anon-key
+
+# OpenAI
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o
+
+# GitHub
+GITHUB_TOKEN=ghp_...
+
+# Application
+NODE_ENV=development
+PORT=3000
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+LOG_LEVEL=debug
+```
+
+### Production Environment
+
+```bash
+# Database - Use strong passwords!
+PASSWORD=<generate-strong-password>
+DATABASE_URL="postgresql://tiktok_miner_user:<password>@db.example.com:5432/tiktok_miner?pgbouncer=true&connection_limit=1"
+DIRECT_URL="postgresql://tiktok_miner_user:<password>@db.example.com:5432/tiktok_miner"
+REDIS_URL="redis://:<redis-password>@redis.example.com:6379"
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+
+# OpenAI
+OPENAI_API_KEY=sk-proj-...
+OPENAI_MODEL=gpt-4o
+OPENAI_TEMPERATURE=0.7
+
+# GitHub - Use multiple tokens for load balancing
+GITHUB_TOKEN=ghp_...
+GITHUB_TOKENS=ghp_token1,ghp_token2,ghp_token3
+GITHUB_TOKEN_LB_STRATEGY=ROUND_ROBIN
+
+# Social Media APIs
+TIKTOK_CLIENT_KEY=...
+TIKTOK_CLIENT_SECRET=...
+INSTAGRAM_CLIENT_ID=...
+INSTAGRAM_CLIENT_SECRET=...
+TWITTER_BEARER_TOKEN=...
+YOUTUBE_API_KEY=...
+
+# Email
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=notifications@yourdomain.com
+SMTP_PASSWORD=<app-specific-password>
+SMTP_SECURE=true
+
+# Application
+NODE_ENV=production
+PORT=3000
+NEXT_PUBLIC_APP_URL=https://yourdomain.com
+LOG_LEVEL=warn
+```
+
+## Security Best Practices
+
+<Warning>
+  **Never commit `.env` files to version control!**
+  
+  Always add `.env` to your `.gitignore`:
+  ```bash
+  echo ".env" >> .gitignore
+  ```
+</Warning>
+
+1. **Use strong passwords**: Generate secure random passwords for databases and Redis
+2. **Rotate API keys**: Regularly rotate sensitive API keys and tokens
+3. **Limit permissions**: Use API keys with minimum required permissions
+4. **Environment isolation**: Use different keys for development and production
+5. **Secret management**: Consider using secret management services like:
+   - AWS Secrets Manager
+   - HashiCorp Vault
+   - Azure Key Vault
+   - Google Secret Manager
+
+## Validation
+
+Validate your environment configuration:
+
+```bash
+cd app
+bun run validate-apis
+```
+
+This script checks:
+- Database connectivity
+- Redis connection
+- API key validity
+- Required vs optional variables
+
+## Troubleshooting
+
+### Database Connection Errors
+
+<AccordionGroup>
+  <Accordion title="Error: Connection refused">
+    - Verify PostgreSQL is running: `docker-compose ps postgres`
+    - Check DATABASE_URL format and credentials
+    - Ensure database port (5432) is accessible
+  </Accordion>
+  
+  <Accordion title="Error: SSL required">
+    Add `?sslmode=require` to your DATABASE_URL:
+    ```bash
+    DATABASE_URL="postgresql://user:pass@host:5432/db?sslmode=require"
+    ```
+  </Accordion>
+  
+  <Accordion title="Migration errors">
+    Use DIRECT_URL for migrations, not the pooler URL:
+    - Supabase: Port 5432 (not 6543)
+    - No pgbouncer parameters
+  </Accordion>
+</AccordionGroup>
+
+### API Key Issues
+
+<AccordionGroup>
+  <Accordion title="OpenAI rate limits">
+    - Check your usage at: https://platform.openai.com/usage
+    - Reduce OPENAI_TEMPERATURE or switch to cheaper model
+    - Implement request caching
+  </Accordion>
+  
+  <Accordion title="GitHub rate limits">
+    - Use multiple tokens with GITHUB_TOKENS
+    - Enable GITHUB_TOKEN_LB_STRATEGY=ROUND_ROBIN
+    - Check rate limit status in application logs
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Docker Deployment" icon="docker" href="/deployment/docker">
+    Deploy with Docker Compose
+  </Card>
+  <Card title="Database Setup" icon="database" href="/deployment/database-setup">
+    Configure Prisma and run migrations
+  </Card>
+</CardGroup>

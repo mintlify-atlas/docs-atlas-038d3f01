@@ -1,0 +1,607 @@
+---
+title: 'Budget Management'
+description: 'Manage API budgets, track costs, and monitor spending'
+---
+
+# Budget Management
+
+Manage budgets for API usage, scraping costs, and monitor spending across platforms.
+
+## Endpoints
+
+### Create Budget
+
+```
+POST /api/budget
+```
+
+### Get Budget
+
+```
+GET /api/budget/{budgetId}
+```
+
+### List Budgets
+
+```
+GET /api/budget
+```
+
+### Update Budget
+
+```
+PATCH /api/budget/{budgetId}
+```
+
+### Allocate Cost
+
+```
+POST /api/budget/{budgetId}/allocate
+```
+
+### Get Analytics
+
+```
+GET /api/budget/analytics
+```
+
+## Create Budget
+
+### Request
+
+<ParamField body="name" type="string" required>
+  Budget name (e.g., "Q1 2026 API Budget")
+</ParamField>
+
+<ParamField body="description" type="string">
+  Budget description
+</ParamField>
+
+<ParamField body="budgetType" type="string" required>
+  Budget type: `MONTHLY`, `QUARTERLY`, `YEARLY`, `PROJECT`, `UNLIMITED`
+</ParamField>
+
+<ParamField body="totalAmount" type="number" required>
+  Total budget amount in USD
+</ParamField>
+
+<ParamField body="startDate" type="string" required>
+  Budget start date (ISO 8601)
+</ParamField>
+
+<ParamField body="endDate" type="string" required>
+  Budget end date (ISO 8601)
+</ParamField>
+
+<ParamField body="autoRenewal" type="boolean" default="false">
+  Automatically renew for next period
+</ParamField>
+
+<ParamField body="allocations" type="array">
+  Budget allocations by service
+  
+  <Expandable title="Allocation Object">
+    <ParamField body="platform" type="string" required>
+      Platform or service: `Apify`, `OpenAI`, `Anthropic`, etc.
+    </ParamField>
+    
+    <ParamField body="serviceType" type="string" required>
+      Service type: `API`, `SCRAPING`, `STORAGE`, `PROCESSING`, `MONITORING`, `OTHER`
+    </ParamField>
+    
+    <ParamField body="allocatedAmount" type="number" required>
+      Amount allocated to this service (USD)
+    </ParamField>
+    
+    <ParamField body="priority" type="string" default="MEDIUM">
+      Priority: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if budget was created
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  <Expandable title="Budget Object">
+    <ResponseField name="id" type="string">
+      Unique budget identifier
+    </ResponseField>
+    
+    <ResponseField name="name" type="string">
+      Budget name
+    </ResponseField>
+    
+    <ResponseField name="budgetType" type="string">
+      Budget type
+    </ResponseField>
+    
+    <ResponseField name="totalAmount" type="number">
+      Total budget amount
+    </ResponseField>
+    
+    <ResponseField name="spentAmount" type="number">
+      Amount spent so far
+    </ResponseField>
+    
+    <ResponseField name="remainingAmount" type="number">
+      Remaining budget
+    </ResponseField>
+    
+    <ResponseField name="status" type="string">
+      Budget status: `ACTIVE`, `PAUSED`, `EXCEEDED`, `EXPIRED`, `CANCELLED`
+    </ResponseField>
+    
+    <ResponseField name="startDate" type="string">
+      Start date (ISO 8601)
+    </ResponseField>
+    
+    <ResponseField name="endDate" type="string">
+      End date (ISO 8601)
+    </ResponseField>
+    
+    <ResponseField name="allocations" type="array">
+      Array of budget allocations
+    </ResponseField>
+    
+    <ResponseField name="alerts" type="array">
+      Active budget alerts
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Get Budget Details
+
+### Response
+
+Extends the basic budget object with additional analytics:
+
+<ResponseField name="data" type="object">
+  <Expandable title="Budget Summary">
+    <ResponseField name="budget" type="object">
+      Budget object (see above)
+    </ResponseField>
+    
+    <ResponseField name="allocations" type="array">
+      Array of allocations with current status
+    </ResponseField>
+    
+    <ResponseField name="totalSpent" type="number">
+      Total amount spent
+    </ResponseField>
+    
+    <ResponseField name="totalRemaining" type="number">
+      Total remaining
+    </ResponseField>
+    
+    <ResponseField name="spentPercentage" type="number">
+      Percentage of budget spent
+    </ResponseField>
+    
+    <ResponseField name="alerts" type="array">
+      Active alerts
+    </ResponseField>
+    
+    <ResponseField name="projectedEndDate" type="string">
+      Projected date when budget will be exhausted (based on burn rate)
+    </ResponseField>
+    
+    <ResponseField name="burnRate" type="number">
+      Daily burn rate (USD/day)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Allocate Cost
+
+### Request
+
+<ParamField path="budgetId" type="string" required>
+  Budget ID
+</ParamField>
+
+<ParamField body="platform" type="string" required>
+  Platform name
+</ParamField>
+
+<ParamField body="serviceType" type="string" required>
+  Service type enum
+</ParamField>
+
+<ParamField body="costAmount" type="number" required>
+  Cost amount in USD
+</ParamField>
+
+<ParamField body="description" type="string">
+  Cost description
+</ParamField>
+
+<ParamField body="costDate" type="string">
+  Date of cost (defaults to now)
+</ParamField>
+
+<ParamField body="apiUsageId" type="string">
+  Link to ApiUsage record
+</ParamField>
+
+<ParamField body="apifyRunId" type="string">
+  Link to ApifyRunMetrics record
+</ParamField>
+
+## Budget Analytics
+
+### Response
+
+<ResponseField name="data" type="object">
+  <Expandable title="Budget Analytics">
+    <ResponseField name="totalBudgets" type="number">
+      Total number of budgets
+    </ResponseField>
+    
+    <ResponseField name="activeBudgets" type="number">
+      Number of active budgets
+    </ResponseField>
+    
+    <ResponseField name="totalAllocated" type="number">
+      Total allocated across all budgets
+    </ResponseField>
+    
+    <ResponseField name="totalSpent" type="number">
+      Total spent across all budgets
+    </ResponseField>
+    
+    <ResponseField name="totalRemaining" type="number">
+      Total remaining
+    </ResponseField>
+    
+    <ResponseField name="averageSpentPercentage" type="number">
+      Average utilization percentage
+    </ResponseField>
+    
+    <ResponseField name="budgetsExceeded" type="number">
+      Number of exceeded budgets
+    </ResponseField>
+    
+    <ResponseField name="budgetsNearLimit" type="number">
+      Number of budgets at >80% utilization
+    </ResponseField>
+    
+    <ResponseField name="topSpendingPlatforms" type="array">
+      Top platforms by spending
+    </ResponseField>
+    
+    <ResponseField name="monthlyTrend" type="array">
+      12-month spending trend
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+### Create Monthly Budget
+
+<Tabs>
+  <Tab title="TypeScript">
+    ```typescript
+    import { BudgetManager } from '@/lib/services/budget-manager';
+    import { prisma } from '@/lib/prisma';
+
+    const budgetManager = new BudgetManager(prisma);
+
+    const budget = await budgetManager.createBudget({
+      name: 'March 2026 API Budget',
+      description: 'Monthly budget for API and scraping costs',
+      budgetType: 'MONTHLY',
+      totalAmount: 1000.00,
+      startDate: new Date('2026-03-01'),
+      endDate: new Date('2026-03-31'),
+      autoRenewal: true,
+      allocations: [
+        {
+          platform: 'Apify',
+          serviceType: 'SCRAPING',
+          allocatedAmount: 500.00,
+          priority: 'HIGH'
+        },
+        {
+          platform: 'OpenAI',
+          serviceType: 'API',
+          allocatedAmount: 300.00,
+          priority: 'MEDIUM'
+        },
+        {
+          platform: 'Anthropic',
+          serviceType: 'API',
+          allocatedAmount: 200.00,
+          priority: 'MEDIUM'
+        }
+      ]
+    });
+
+    console.log(`Created budget: ${budget.id}`);
+    ```
+  </Tab>
+  
+  <Tab title="JavaScript">
+    ```javascript
+    // Create budget via API
+    const response = await fetch(
+      'https://your-domain.com/api/budget',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: 'Q1 2026 Budget',
+          budgetType: 'QUARTERLY',
+          totalAmount: 3000.00,
+          startDate: '2026-01-01T00:00:00Z',
+          endDate: '2026-03-31T23:59:59Z',
+          allocations: [
+            {
+              platform: 'Apify',
+              serviceType: 'SCRAPING',
+              allocatedAmount: 1500.00,
+              priority: 'HIGH'
+            },
+            {
+              platform: 'OpenAI',
+              serviceType: 'API',
+              allocatedAmount: 1000.00,
+              priority: 'MEDIUM'
+            },
+            {
+              platform: 'Storage',
+              serviceType: 'STORAGE',
+              allocatedAmount: 500.00,
+              priority: 'LOW'
+            }
+          ]
+        })
+      }
+    );
+
+    const { data } = await response.json();
+    console.log('Budget created:', data);
+    ```
+  </Tab>
+  
+  <Tab title="cURL">
+    ```bash
+    curl -X POST https://your-domain.com/api/budget \
+      -H "Authorization: Bearer YOUR_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "March 2026 API Budget",
+        "budgetType": "MONTHLY",
+        "totalAmount": 1000.00,
+        "startDate": "2026-03-01T00:00:00Z",
+        "endDate": "2026-03-31T23:59:59Z",
+        "allocations": [
+          {
+            "platform": "Apify",
+            "serviceType": "SCRAPING",
+            "allocatedAmount": 500.00,
+            "priority": "HIGH"
+          }
+        ]
+      }'
+    ```
+  </Tab>
+</Tabs>
+
+### Track API Costs
+
+```typescript
+// After making an API call
+const apiCost = 0.05; // $0.05 per request
+
+await budgetManager.allocateCost({
+  budgetId: 'budget_123',
+  platform: 'OpenAI',
+  serviceType: 'API',
+  costAmount: apiCost,
+  description: 'GPT-4 API call',
+  apiUsageId: 'usage_456',
+  metadata: {
+    model: 'gpt-4',
+    tokens: 1250,
+    endpoint: '/v1/chat/completions'
+  }
+});
+
+// Check budget status
+const summary = await budgetManager.getBudget('budget_123');
+if (summary.spentPercentage > 90) {
+  console.warn(`Budget at ${summary.spentPercentage}% - ${summary.totalRemaining} remaining`);
+}
+```
+
+### Monitor Spending
+
+```typescript
+// Get budget analytics
+const analytics = await budgetManager.getBudgetAnalytics();
+
+console.log('Budget Overview:');
+console.log(`  Total Allocated: $${analytics.totalAllocated.toFixed(2)}`);
+console.log(`  Total Spent: $${analytics.totalSpent.toFixed(2)}`);
+console.log(`  Utilization: ${analytics.averageSpentPercentage.toFixed(1)}%`);
+console.log(`  Budgets Exceeded: ${analytics.budgetsExceeded}`);
+console.log(`  Budgets Near Limit: ${analytics.budgetsNearLimit}`);
+
+console.log('\nTop Spending Platforms:');
+analytics.topSpendingPlatforms.forEach((platform, index) => {
+  console.log(`  ${index + 1}. ${platform.platform}: $${platform.totalSpent.toFixed(2)} (${platform.percentage.toFixed(1)}%)`);
+});
+
+// Plot monthly trend
+console.log('\nMonthly Trend:');
+analytics.monthlyTrend.forEach(month => {
+  console.log(`  ${month.month}: $${month.totalSpent.toFixed(2)} (${month.budgetUtilization.toFixed(1)}% utilization)`);
+});
+```
+
+## Response Example
+
+### Budget Summary
+
+```json
+{
+  "success": true,
+  "data": {
+    "budget": {
+      "id": "budget_123",
+      "name": "March 2026 API Budget",
+      "budgetType": "MONTHLY",
+      "totalAmount": 1000.00,
+      "spentAmount": 456.78,
+      "remainingAmount": 543.22,
+      "status": "ACTIVE",
+      "startDate": "2026-03-01T00:00:00Z",
+      "endDate": "2026-03-31T23:59:59Z",
+      "alertThreshold80": true,
+      "alertThreshold90": true,
+      "alertThreshold100": true,
+      "autoRenewal": true
+    },
+    "allocations": [
+      {
+        "id": "alloc_1",
+        "platform": "Apify",
+        "serviceType": "SCRAPING",
+        "allocatedAmount": 500.00,
+        "spentAmount": 289.50,
+        "remainingAmount": 210.50,
+        "priority": "HIGH"
+      },
+      {
+        "id": "alloc_2",
+        "platform": "OpenAI",
+        "serviceType": "API",
+        "allocatedAmount": 300.00,
+        "spentAmount": 123.28,
+        "remainingAmount": 176.72,
+        "priority": "MEDIUM"
+      },
+      {
+        "id": "alloc_3",
+        "platform": "Anthropic",
+        "serviceType": "API",
+        "allocatedAmount": 200.00,
+        "spentAmount": 44.00,
+        "remainingAmount": 156.00,
+        "priority": "MEDIUM"
+      }
+    ],
+    "totalSpent": 456.78,
+    "totalRemaining": 543.22,
+    "spentPercentage": 45.68,
+    "alerts": [],
+    "projectedEndDate": "2026-03-21T14:30:00Z",
+    "burnRate": 76.13
+  }
+}
+```
+
+### Budget Analytics
+
+```json
+{
+  "success": true,
+  "data": {
+    "totalBudgets": 5,
+    "activeBudgets": 3,
+    "totalAllocated": 5000.00,
+    "totalSpent": 2145.67,
+    "totalRemaining": 2854.33,
+    "averageSpentPercentage": 42.91,
+    "budgetsExceeded": 0,
+    "budgetsNearLimit": 1,
+    "topSpendingPlatforms": [
+      {
+        "platform": "Apify",
+        "totalSpent": 1245.80,
+        "percentage": 58.06
+      },
+      {
+        "platform": "OpenAI",
+        "totalSpent": 678.42,
+        "percentage": 31.62
+      },
+      {
+        "platform": "Anthropic",
+        "totalSpent": 221.45,
+        "percentage": 10.32
+      }
+    ],
+    "monthlyTrend": [
+      {
+        "month": "2026-01",
+        "totalSpent": 876.34,
+        "budgetUtilization": 58.42
+      },
+      {
+        "month": "2026-02",
+        "totalSpent": 812.55,
+        "budgetUtilization": 54.17
+      },
+      {
+        "month": "2026-03",
+        "totalSpent": 456.78,
+        "budgetUtilization": 45.68
+      }
+    ]
+  }
+}
+```
+
+## Budget Alerts
+
+Alerts are automatically created when thresholds are reached:
+
+- **80% Threshold**: Warning alert
+- **90% Threshold**: Critical alert
+- **100% Threshold**: Budget exceeded alert
+
+Implementation in `/lib/services/budget-manager.ts:400-445`:
+
+```typescript
+private async checkBudgetAlerts(budgetId: string): Promise<void> {
+  const budget = await this.prisma.budget.findUnique({
+    where: { id: budgetId },
+    include: { budgetAlerts: { where: { isResolved: false } } }
+  });
+
+  const spentPercentage = (budget.spentAmount / budget.totalAmount) * 100;
+
+  if (budget.alertThreshold80 && spentPercentage >= 80) {
+    await this.prisma.budgetAlert.create({
+      data: {
+        budgetId: budget.id,
+        alertType: 'THRESHOLD_80',
+        threshold: 80,
+        currentSpent: budget.spentAmount,
+        budgetTotal: budget.totalAmount,
+        message: `Budget "${budget.name}" has reached ${spentPercentage.toFixed(1)}% of allocated amount`
+      }
+    });
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Monitoring Alerts" icon="bell" href="/api/monitoring/alerts">
+    Configure budget alerts and notifications
+  </Card>
+  <Card title="Budget Management" icon="wallet" href="/advanced/budget-management">
+    Learn about cost optimization and forecasting
+  </Card>
+</CardGroup>

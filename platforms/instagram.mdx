@@ -1,0 +1,453 @@
+---
+title: "Instagram Integration"
+description: "Collect Instagram profile data, engagement metrics, and post analytics using Apify actors"
+---
+
+## Overview
+
+TikTok Miner's Instagram integration uses Apify's Instagram scraper to collect comprehensive profile data, post metrics, and engagement analytics. This integration provides access to public Instagram data without requiring official API access.
+
+## How It Works
+
+The Instagram integration uses the `ActorManager` class with specialized scraping methods:
+
+1. **Profile Scraping**: Collects account information, follower/following counts, bio, and verification status
+2. **Post Analysis**: Retrieves recent posts with likes, comments, and engagement data
+3. **Discovery**: Searches for creators by username, hashtag, or location
+4. **Metrics Calculation**: Computes engagement rates and audience quality scores
+
+### Architecture
+
+```
+ActorManager.scrapeInstagramProfile() → ApifyClient → Apify API
+        ↓
+InstagramTransformer → UnifiedCreatorData → InstagramMetrics (Database)
+```
+
+**Key Files:**
+- **Actor Manager**: `lib/apify/actor-manager.ts`
+- **Transformers**: `lib/apify/transformers.ts`
+- **Configuration**: `lib/apify/config.ts`
+- **Database Schema**: `prisma/schema.prisma` (InstagramMetrics model)
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# Apify Configuration
+APIFY_API_KEY=your_apify_api_key_here
+APIFY_BASE_URL=https://api.apify.com
+APIFY_DEFAULT_TIMEOUT_SECS=300
+APIFY_MAX_RETRIES=3
+
+# Instagram Scrapers
+APIFY_INSTAGRAM_SCRAPER_ID=apify/instagram-scraper
+APIFY_INSTAGRAM_POST_SCRAPER_ID=apify/instagram-post-scraper
+```
+
+### Service Setup
+
+```typescript
+import { ActorManager } from '@/lib/apify/actor-manager';
+
+const actorManager = new ActorManager({
+  apiKey: process.env.APIFY_API_KEY!,
+  baseUrl: process.env.APIFY_BASE_URL,
+  maxRetries: 3,
+  requestTimeoutMs: 120000,
+});
+```
+
+## Data Collection
+
+### Profile Metrics
+
+The `InstagramMetrics` table stores:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `accountId` | String | Instagram account ID |
+| `username` | String | Instagram username (unique) |
+| `fullName` | String | Display name |
+| `followerCount` | Int | Total followers |
+| `followingCount` | Int | Total following |
+| `mediaCount` | Int | Total posts |
+| `averageLikes` | Float | Average likes per post |
+| `averageComments` | Float | Average comments per post |
+| `engagementRate` | Float | Calculated engagement rate (%) |
+| `isVerified` | Boolean | Blue checkmark status |
+| `isBusinessAccount` | Boolean | Business account flag |
+| `businessCategory` | String | Business category (if applicable) |
+| `reach` | Int | Reach metric (business accounts) |
+| `impressions` | Int | Impressions (business accounts) |
+| `profileViews` | Int | Profile views (business accounts) |
+| `websiteClicks` | Int | Website clicks (business accounts) |
+
+### Data Model
+
+```typescript
+interface InstagramData {
+  accountId: string;
+  username: string;
+  fullName?: string;
+  profileUrl: string;
+  bio?: string;
+  website?: string;
+  isVerified: boolean;
+  isBusinessAccount?: boolean;
+  businessCategory?: string;
+  followerCount: number;
+  followingCount: number;
+  mediaCount: number;
+  averageLikes?: number;
+  averageComments?: number;
+  engagementRate?: number;
+  reach?: number;
+  impressions?: number;
+  profileViews?: number;
+  websiteClicks?: number;
+}
+```
+
+## Usage Examples
+
+<Tabs>
+  <Tab title="Scrape Profile">
+    ```typescript
+    import { ActorManager } from '@/lib/apify/actor-manager';
+    import { InstagramTransformer } from '@/lib/apify/transformers';
+
+    const actorManager = new ActorManager({
+      apiKey: process.env.APIFY_API_KEY!,
+    });
+
+    // Scrape a profile
+    const result = await actorManager.scrapeInstagramProfile('instagram', {
+      resultsLimit: 30,  // Number of posts to analyze
+    });
+
+    // Get dataset results
+    const profiles = await actorManager.getRunDataset(
+      result.datasetId,
+      { limit: 1 }
+    );
+
+    const profile = profiles[0];
+    console.log({
+      username: profile.username,
+      followers: profile.followersCount,
+      posts: profile.postsCount,
+      verified: profile.isVerified,
+    });
+    ```
+  </Tab>
+
+  <Tab title="Calculate Engagement">
+    ```typescript
+    import { InstagramTransformer } from '@/lib/apify/transformers';
+
+    const transformer = new InstagramTransformer();
+    const result = transformer.transform(apifyProfile);
+
+    if (result.validation.isValid && result.data) {
+      const { platformData } = result.data;
+      const instagram = platformData?.instagram;
+
+      console.log({
+        engagementRate: instagram?.engagementRate?.toFixed(2) + '%',
+        avgLikes: instagram?.averageLikes,
+        avgComments: instagram?.averageComments,
+        totalReach: result.data.totalReach,
+      });
+    }
+    ```
+  </Tab>
+
+  <Tab title="Search & Discover">
+    ```typescript
+    // Search for profiles by keywords
+    const searchResult = await actorManager.searchInstagramProfiles(
+      ['tech', 'startup', 'entrepreneur'],
+      {
+        searchLimit: 100,
+        resultsLimit: 100,
+      }
+    );
+
+    const profiles = await actorManager.getRunDataset(
+      searchResult.datasetId
+    );
+
+    // Filter and sort by engagement
+    const topCreators = profiles
+      .filter(p => p.followersCount > 10000)
+      .sort((a, b) => {
+        const engA = (a.posts?.[0]?.likesCount || 0) / a.followersCount;
+        const engB = (b.posts?.[0]?.likesCount || 0) / b.followersCount;
+        return engB - engA;
+      })
+      .slice(0, 20);
+    ```
+  </Tab>
+
+  <Tab title="Store in Database">
+    ```typescript
+    import { prisma } from '@/lib/db';
+    import { processCreatorProfile } from '@/lib/apify';
+
+    // Transform and validate
+    const result = await processCreatorProfile('instagram', apifyProfile);
+
+    if (result.success) {
+      const { data } = result;
+      const instagram = data.platformData?.instagram;
+
+      // Create creator profile with Instagram metrics
+      const creator = await prisma.creatorProfile.create({
+        data: {
+          name: data.name,
+          bio: data.bio,
+          profileImageUrl: data.profileImageUrl,
+          isVerified: data.isVerified,
+          platformIdentifiers: data.platformIdentifiers,
+          totalReach: data.totalReach,
+          averageEngagementRate: instagram?.engagementRate,
+          instagramMetrics: {
+            create: {
+              accountId: instagram!.accountId,
+              username: instagram!.username,
+              fullName: instagram?.fullName,
+              profileUrl: instagram!.profileUrl,
+              bio: instagram?.bio,
+              website: instagram?.website,
+              isVerified: instagram!.isVerified,
+              isBusinessAccount: instagram?.isBusinessAccount || false,
+              businessCategory: instagram?.businessCategory,
+              followerCount: instagram!.followerCount,
+              followingCount: instagram!.followingCount,
+              mediaCount: instagram!.mediaCount,
+              averageLikes: instagram?.averageLikes || 0,
+              averageComments: instagram?.averageComments || 0,
+              engagementRate: instagram?.engagementRate || 0,
+            },
+          },
+        },
+      });
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Rate Limits & Quotas
+
+### Apify Limits
+
+- **Free Tier**: $5 in free credits monthly
+- **Personal Plan**: $49/month with more compute units
+- **Default Timeout**: 300 seconds per run
+- **Memory**: 512 MB default (configurable up to 32 GB)
+- **Concurrent Runs**: Based on subscription tier
+
+### Instagram Scraper Configuration
+
+```typescript
+const input = {
+  directUrls: [`https://www.instagram.com/${username}/`],
+  resultsType: 'details',
+  resultsLimit: 30,      // Limit posts to reduce cost
+  searchType: 'user',
+  searchLimit: 1,
+  addParentData: true,
+};
+
+const runOptions = {
+  timeoutSecs: 300,
+  memoryMbytes: 512,
+};
+```
+
+### Cost Optimization
+
+<Tip>
+  **Reduce Apify costs** by:
+  - Limiting `resultsLimit` to only necessary posts
+  - Using shorter timeouts for simple profiles
+  - Caching results in your database
+  - Running bulk operations during off-peak hours
+  - Monitoring usage with `ApifyRunMetrics`
+</Tip>
+
+```typescript
+// Track costs in database
+const metrics = await prisma.apifyRunMetrics.create({
+  data: {
+    actorId: 'apify/instagram-scraper',
+    platform: 'instagram',
+    status: 'SUCCEEDED',
+    startedAt: new Date(),
+    finishedAt: new Date(),
+    duration: 45000,  // milliseconds
+    datasetItemCount: 1,
+    costUsd: 0.03,
+  },
+});
+```
+
+## Post Scraping
+
+### Scrape Posts by Hashtag
+
+```typescript
+import { ActorManager } from '@/lib/apify/actor-manager';
+
+const postScraperConfig = {
+  actorId: 'apify/instagram-post-scraper',
+  defaultInput: {
+    search: '#techstartup',
+    searchType: 'hashtag',
+    searchLimit: 100,
+    resultsLimit: 500,
+    enableComments: true,
+    commentsLimit: 50,
+    enableLikes: true,
+    likesLimit: 100,
+  },
+};
+
+// This would require implementing a post scraping method
+// or using the Apify client directly
+```
+
+## Error Handling
+
+```typescript
+try {
+  const result = await actorManager.scrapeInstagramProfile(username);
+  const profiles = await actorManager.getRunDataset(result.datasetId);
+  
+  if (!profiles || profiles.length === 0) {
+    console.log('Profile not found or is private');
+  }
+} catch (error) {
+  if (error.message.includes('Actor run failed')) {
+    console.error('Scraper encountered an error');
+  } else if (error.message.includes('timeout')) {
+    console.error('Scraper timed out');
+  } else {
+    console.error('Unexpected error:', error);
+  }
+}
+```
+
+## Data Validation
+
+The `InstagramTransformer` ensures data quality:
+
+```typescript
+import { InstagramTransformer } from '@/lib/apify/transformers';
+
+const transformer = new InstagramTransformer();
+const result = transformer.transform(apifyProfile);
+
+if (!result.validation.isValid) {
+  console.error('Validation errors:', result.validation.errors);
+  console.warn('Warnings:', result.validation.warnings);
+} else {
+  // Data is safe to use
+  const unifiedData = result.data;
+}
+```
+
+**Validation includes:**
+- Username sanitization
+- Bio HTML stripping
+- URL normalization
+- Numeric type validation
+- Required field checks
+
+## Pipeline Discovery
+
+Store discovered profiles for later processing:
+
+```typescript
+const profile = await prisma.instagramProfile.create({
+  data: {
+    username: 'techcreator',
+    fullName: 'Tech Creator',
+    bio: 'Creating tech content',
+    followerCount: 50000,
+    followingCount: 1000,
+    postsCount: 250,
+    isVerified: true,
+    isBusinessAccount: true,
+    // 30-day metrics
+    posts30d: 12,
+    likesTotal30d: 60000,
+    likesAvg30d: 5000,
+    commentsTotal30d: 1200,
+    commentsAvg30d: 100,
+    engagementRate30d: 10.2,
+    discoveryKeywords: ['tech', 'startup'],
+  },
+});
+```
+
+## Monitoring
+
+### Track Data Quality
+
+```typescript
+const quality = await prisma.apifyDataQualityMetrics.create({
+  data: {
+    platform: 'instagram',
+    totalItemsProcessed: 150,
+    validItemsCount: 145,
+    invalidItemsCount: 5,
+    validationErrors: [
+      { error: 'Missing follower count', count: 3 },
+      { error: 'Invalid username format', count: 2 },
+    ],
+  },
+});
+```
+
+### Set Up Alerts
+
+```typescript
+const alert = await prisma.apifyAlert.create({
+  data: {
+    platform: 'instagram',
+    severity: 'MEDIUM',
+    alertType: 'DATA_QUALITY',
+    message: 'Instagram data quality below threshold',
+    conditions: { threshold: 0.95, actual: 0.93 },
+  },
+});
+```
+
+## Best Practices
+
+<Warning>
+  **Instagram Scraping Guidelines:**
+  - Respect rate limits to avoid IP bans
+  - Use Apify's proxy rotation (enabled by default)
+  - Cache results to minimize redundant requests
+  - Only scrape public profiles (private accounts return limited data)
+  - Monitor for changes in Instagram's structure
+</Warning>
+
+## Limitations
+
+- **Private Accounts**: Cannot scrape private profiles
+- **Stories**: Story data is not available via scraping
+- **Reels Insights**: Limited reel metrics without Business API
+- **Real-time Data**: Slight delay compared to official API
+- **Business Insights**: Partial data; full insights require Graph API
+
+## Next Steps
+
+- [TikTok Integration](/platforms/tiktok)
+- [Twitter Data Collection](/platforms/twitter)
+- [YouTube Analytics](/platforms/youtube)
+- [Monitor API Usage](/advanced/api-monitoring)

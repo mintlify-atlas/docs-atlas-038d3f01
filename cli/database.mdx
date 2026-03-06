@@ -1,0 +1,645 @@
+---
+title: Database Commands
+description: Query and explore the TikTok Miner database
+---
+
+## Overview
+
+The `query-db` command provides powerful tools for querying and exploring data in the TikTok Miner PostgreSQL database. It supports both structured queries with convenient options and raw SQL for advanced use cases.
+
+## Command Syntax
+
+```bash
+tiktok-miner query-db [sql] [options]
+```
+
+### Arguments
+
+- `[sql]` - Optional raw SQL query to execute
+
+### Options
+
+- `-u, --username <username>` - Search for creators by username
+- `-r, --repo <repo>` - Search repositories by URL or ID
+- `-j, --jd <id>` - Search job descriptions by ID
+- `-t, --tag <tag>` - Search job descriptions by tag
+- `-l, --limit <number>` - Limit number of results
+- `--repos` - Include owned repositories for user queries
+- `--contributions` - Include contributed repositories for users
+- `--contributors` - Include contributors for repository queries
+
+## Usage Examples
+
+### Search by Username
+
+Find a creator by their username:
+
+```bash
+tiktok-miner query-db --username techguru
+```
+
+**Example Output:**
+
+```
+Querying creators with username: techguru
+
+┌─────────────────┬──────────────┬──────────────┬───────────────────┬────────────┐
+│ ID              │ Name         │ Platform     │ Total Reach       │ Engagement │
+├─────────────────┼──────────────┼──────────────┼───────────────────┼────────────┤
+│ abc123-def456   │ TechGuru     │ Multiple     │ 2,575,000        │ 9.2%       │
+└─────────────────┴──────────────┴──────────────┴───────────────────┴────────────┘
+
+Platform Identifiers:
+  YouTube: @TechGuru
+  Instagram: @techguru  
+  Twitter: @techguru
+
+Metrics:
+  Composite Score: 92.5
+  Content Frequency: 5.3 posts/week
+  Audience Quality: 87/100
+  Last Synced: 2026-03-06 10:30:00
+```
+
+### Search with Related Data
+
+Include repositories and contributions:
+
+```bash
+tiktok-miner query-db --username techguru --repos --contributions
+```
+
+**Example Output:**
+
+```
+Querying creators with username: techguru
+
+Creator: TechGuru (abc123-def456)
+  Total Reach: 2,575,000
+  Engagement Rate: 9.2%
+
+Owned Repositories (3):
+  1. techguru/awesome-tutorials
+     ⭐ 15.2K stars | 🍴 2.3K forks | Updated: 2 days ago
+     
+  2. techguru/code-snippets  
+     ⭐ 8.9K stars | 🍴 1.1K forks | Updated: 5 days ago
+     
+  3. techguru/dev-resources
+     ⭐ 5.6K stars | 🍴 890 forks | Updated: 1 week ago
+
+Contributed Repositories (12):
+  1. facebook/react - 45 contributions
+  2. microsoft/vscode - 23 contributions  
+  3. nodejs/node - 18 contributions
+  ...
+```
+
+### Limit Results
+
+Limit the number of results returned:
+
+```bash
+tiktok-miner query-db --limit 10
+```
+
+This retrieves the first 10 creators from the database:
+
+```
+Querying all creators (limit: 10)
+
+┌────┬──────────────────┬────────────────┬──────────────┬─────────────┐
+│ #  │ Name             │ Category       │ Total Reach  │ Engagement  │
+├────┼──────────────────┼────────────────┼──────────────┼─────────────┤
+│ 1  │ TechGuru         │ tech          │ 2,575,000    │ 9.2%        │
+│ 2  │ FitnessQueen     │ fitness       │ 1,890,000    │ 11.5%       │
+│ 3  │ CodeWithJane     │ tech          │ 980,000      │ 12.3%       │
+│ 4  │ FoodieAdventures │ food          │ 1,450,000    │ 8.7%        │
+│ 5  │ TravelBug        │ travel        │ 2,100,000    │ 7.9%        │
+│ 6  │ BeautyByEmma     │ beauty        │ 1,230,000    │ 10.2%       │
+│ 7  │ GamingPro        │ gaming        │ 3,450,000    │ 15.6%       │
+│ 8  │ MusicMaestro     │ music         │ 890,000      │ 6.8%        │
+│ 9  │ ArtistryDaily    │ art           │ 567,000      │ 9.3%        │
+│ 10 │ BusinessMinded   │ business      │ 1,120,000    │ 5.4%        │
+└────┴──────────────────┴────────────────┴──────────────┴─────────────┘
+
+Showing 10 of 1,234 total creators
+```
+
+### Search Job Descriptions
+
+Find job descriptions by ID:
+
+```bash
+tiktok-miner query-db --jd job_123456
+```
+
+**Example Output:**
+
+```
+Job Description: job_123456
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Title: Senior Full Stack Developer
+Company: TechCorp Inc.
+Location: Remote
+Posted: 2026-03-01
+
+Description:
+  We're looking for an experienced Full Stack Developer to join
+  our growing team. The ideal candidate has 5+ years of experience
+  with React, Node.js, and PostgreSQL.
+
+Requirements:
+  • 5+ years professional software development
+  • Strong JavaScript/TypeScript skills
+  • Experience with React and Node.js
+  • PostgreSQL or similar database experience
+  • Excellent communication skills
+
+Tags: javascript, typescript, react, nodejs, postgresql, remote
+
+Salary Range: $120,000 - $180,000
+Employment Type: Full-time
+```
+
+### Search by Tag
+
+Find job descriptions with specific tags:
+
+```bash
+tiktok-miner query-db --tag javascript --limit 5
+```
+
+**Example Output:**
+
+```
+Job Descriptions tagged with: javascript
+
+┌────────────┬─────────────────────────────────┬──────────────────┬────────────┐
+│ ID         │ Title                           │ Company          │ Posted     │
+├────────────┼─────────────────────────────────┼──────────────────┼────────────┤
+│ job_123456 │ Senior Full Stack Developer     │ TechCorp Inc.    │ 2 days ago │
+│ job_123457 │ Frontend Engineer               │ StartupXYZ       │ 4 days ago │
+│ job_123458 │ JavaScript Developer            │ BigTech Co.      │ 1 week ago │
+│ job_123459 │ React Native Developer          │ MobileApp Inc.   │ 1 week ago │
+│ job_123460 │ Node.js Backend Developer       │ CloudServices    │ 2 weeks ago│
+└────────────┴─────────────────────────────────┴──────────────────┴────────────┘
+
+Found 5 job descriptions (showing first 5)
+```
+
+### Repository Search
+
+Search for repositories by URL or name:
+
+```bash
+tiktok-miner query-db --repo "https://github.com/facebook/react"
+```
+
+**Example Output:**
+
+```
+Repository: facebook/react
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+URL: https://github.com/facebook/react
+Description: The library for web and native user interfaces
+
+Statistics:
+  ⭐ Stars: 234,567
+  🍴 Forks: 47,890  
+  👁 Watchers: 6,789
+  📝 Open Issues: 1,234
+  
+Language: JavaScript (95.2%)
+License: MIT
+Created: 2013-05-24
+Last Updated: 2 hours ago
+
+Topics: react, javascript, frontend, ui, library
+```
+
+### Include Repository Contributors
+
+Show contributors when querying repositories:
+
+```bash
+tiktok-miner query-db --repo "facebook/react" --contributors
+```
+
+**Example Output:**
+
+```
+Repository: facebook/react
+
+Top Contributors:
+
+  1. @sophiebits
+     Contributions: 2,345
+     Role: Core Team
+     
+  2. @sebmarkbage  
+     Contributions: 1,987
+     Role: Core Team
+     
+  3. @acdlite
+     Contributions: 1,654
+     Role: Core Team
+     
+  4. @gaearon
+     Contributions: 1,432
+     Role: Core Team
+     
+  5. @zpao
+     Contributions: 987
+     Role: Core Team
+
+  ... and 1,234 more contributors
+```
+
+## Raw SQL Queries
+
+### Basic SELECT Query
+
+Execute custom SQL queries directly:
+
+```bash
+tiktok-miner query-db "SELECT * FROM CreatorProfile LIMIT 5"
+```
+
+**Example Output:**
+
+```
+Executing raw SQL query...
+
+┌─────────────────┬──────────────┬──────────┬──────────────┬──────────────────────┐
+│ id              │ name         │ category │ totalReach   │ compositeScore       │
+├─────────────────┼──────────────┼──────────┼──────────────┼──────────────────────┤
+│ abc123-def456   │ TechGuru     │ tech     │ 2575000      │ 92.5                 │
+│ def789-ghi012   │ FitnessQueen │ fitness  │ 1890000      │ 88.3                 │
+│ ghi345-jkl678   │ CodeWithJane │ tech     │ 980000       │ 85.7                 │
+│ jkl901-mno234   │ FoodieAdv    │ food     │ 1450000      │ 79.2                 │
+│ mno567-pqr890   │ TravelBug    │ travel   │ 2100000      │ 82.6                 │
+└─────────────────┴──────────────┴──────────┴──────────────┴──────────────────────┘
+
+5 rows returned
+```
+
+### Filtered Query
+
+Query with WHERE clause:
+
+```bash
+tiktok-miner query-db "SELECT name, category, totalReach FROM CreatorProfile WHERE totalReach > 1000000 ORDER BY totalReach DESC"
+```
+
+**Example Output:**
+
+```
+Executing raw SQL query...
+
+┌──────────────────┬──────────┬──────────────┐
+│ name             │ category │ totalReach   │
+├──────────────────┼──────────┼──────────────┤
+│ GamingPro        │ gaming   │ 3,450,000    │
+│ TechGuru         │ tech     │ 2,575,000    │
+│ TravelBug        │ travel   │ 2,100,000    │
+│ FitnessQueen     │ fitness  │ 1,890,000    │
+│ FoodieAdventures │ food     │ 1,450,000    │
+│ BeautyByEmma     │ beauty   │ 1,230,000    │
+│ BusinessMinded   │ business │ 1,120,000    │
+└──────────────────┴──────────┴──────────────┘
+
+7 rows returned
+```
+
+### Aggregate Query
+
+Perform aggregations:
+
+```bash
+tiktok-miner query-db "SELECT category, COUNT(*) as count, AVG(totalReach) as avg_reach FROM CreatorProfile GROUP BY category ORDER BY count DESC"
+```
+
+**Example Output:**
+
+```
+Executing raw SQL query...
+
+┌──────────┬───────┬─────────────────┐
+│ category │ count │ avg_reach       │
+├──────────┼───────┼─────────────────┤
+│ tech     │ 234   │ 1,234,567       │
+│ fitness  │ 189   │ 987,654         │
+│ food     │ 156   │ 876,543         │
+│ gaming   │ 145   │ 2,345,678       │
+│ fashion  │ 123   │ 765,432         │
+│ beauty   │ 112   │ 654,321         │
+│ travel   │ 98    │ 1,432,109       │
+│ music    │ 87    │ 543,210         │
+│ business │ 76    │ 432,109         │
+│ art      │ 65    │ 321,098         │
+└──────────┴───────┴─────────────────┘
+
+10 rows returned
+```
+
+### JOIN Query
+
+Query across multiple tables:
+
+```bash
+tiktok-miner query-db "SELECT c.name, c.category, y.subscriberCount, y.engagementRate FROM CreatorProfile c LEFT JOIN YoutubeMetrics y ON c.id = y.creatorProfileId WHERE y.subscriberCount > 500000 LIMIT 5"
+```
+
+**Example Output:**
+
+```
+Executing raw SQL query...
+
+┌──────────────────┬──────────┬──────────────────┬────────────────┐
+│ name             │ category │ subscriberCount  │ engagementRate │
+├──────────────────┼──────────┼──────────────────┼────────────────┤
+│ TechGuru         │ tech     │ 1,250,000       │ 8.5            │
+│ GamingPro        │ gaming   │ 2,890,000       │ 15.6           │
+│ FitnessQueen     │ fitness  │ 780,000         │ 11.5           │
+│ TravelBug        │ travel   │ 1,450,000       │ 7.9            │
+│ FoodieAdventures │ food     │ 890,000         │ 9.2            │
+└──────────────────┴──────────┴──────────────────┴────────────────┘
+
+5 rows returned
+```
+
+## Database Schema
+
+### Main Tables
+
+#### CreatorProfile
+
+Stores creator profile information:
+
+```sql
+CREATE TABLE CreatorProfile (
+  id                       TEXT PRIMARY KEY,
+  name                     TEXT NOT NULL,
+  email                    TEXT,
+  bio                      TEXT,
+  profileImageUrl          TEXT,
+  category                 TEXT,
+  tags                     TEXT[],
+  isVerified               BOOLEAN DEFAULT false,
+  platformIdentifiers      JSONB,
+  compositeEngagementScore FLOAT,
+  totalReach               INTEGER DEFAULT 0,
+  averageEngagementRate    FLOAT,
+  contentFrequency         FLOAT,
+  audienceQualityScore     FLOAT,
+  lastSync                 TIMESTAMP DEFAULT NOW(),
+  syncStatus               TEXT DEFAULT 'PENDING',
+  createdAt                TIMESTAMP DEFAULT NOW(),
+  updatedAt                TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### YoutubeMetrics
+
+YouTube-specific metrics:
+
+```sql
+CREATE TABLE YoutubeMetrics (
+  id                TEXT PRIMARY KEY,
+  creatorProfileId  TEXT UNIQUE REFERENCES CreatorProfile(id),
+  channelId         TEXT UNIQUE,
+  subscriberCount   INTEGER DEFAULT 0,
+  videoCount        INTEGER DEFAULT 0,
+  viewCount         BIGINT DEFAULT 0,
+  averageViews      INTEGER DEFAULT 0,
+  averageLikes      INTEGER DEFAULT 0,
+  averageComments   INTEGER DEFAULT 0,
+  engagementRate    FLOAT DEFAULT 0,
+  channelName       TEXT,
+  channelUrl        TEXT,
+  description       TEXT,
+  lastSync          TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### InstagramMetrics
+
+Instagram-specific metrics:
+
+```sql
+CREATE TABLE InstagramMetrics (
+  id                TEXT PRIMARY KEY,
+  creatorProfileId  TEXT UNIQUE REFERENCES CreatorProfile(id),
+  username          TEXT UNIQUE,
+  followerCount     INTEGER DEFAULT 0,
+  followingCount    INTEGER DEFAULT 0,
+  postCount         INTEGER DEFAULT 0,
+  averageLikes      INTEGER DEFAULT 0,
+  averageComments   INTEGER DEFAULT 0,
+  engagementRate    FLOAT DEFAULT 0,
+  lastSync          TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### TiktokMetrics
+
+TikTok-specific metrics:
+
+```sql
+CREATE TABLE TiktokMetrics (
+  id                TEXT PRIMARY KEY,
+  creatorProfileId  TEXT UNIQUE REFERENCES CreatorProfile(id),
+  username          TEXT UNIQUE,
+  followerCount     INTEGER DEFAULT 0,
+  followingCount    INTEGER DEFAULT 0,
+  heartCount        BIGINT DEFAULT 0,
+  videoCount        INTEGER DEFAULT 0,
+  averageViews      INTEGER DEFAULT 0,
+  averageLikes      INTEGER DEFAULT 0,
+  engagementRate    FLOAT DEFAULT 0,
+  lastSync          TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### TwitterMetrics
+
+Twitter-specific metrics:
+
+```sql
+CREATE TABLE TwitterMetrics (
+  id                TEXT PRIMARY KEY,
+  creatorProfileId  TEXT UNIQUE REFERENCES CreatorProfile(id),
+  username          TEXT UNIQUE,
+  followerCount     INTEGER DEFAULT 0,
+  followingCount    INTEGER DEFAULT 0,
+  tweetCount        INTEGER DEFAULT 0,
+  listedCount       INTEGER DEFAULT 0,
+  averageLikes      INTEGER DEFAULT 0,
+  averageRetweets   INTEGER DEFAULT 0,
+  engagementRate    FLOAT DEFAULT 0,
+  lastSync          TIMESTAMP DEFAULT NOW()
+);
+```
+
+## Common Queries
+
+### Find Top Performers
+
+Find creators with highest engagement:
+
+```bash
+tiktok-miner query-db "SELECT name, category, totalReach, compositeEngagementScore FROM CreatorProfile WHERE compositeEngagementScore > 80 ORDER BY compositeEngagementScore DESC LIMIT 10"
+```
+
+### Category Analysis
+
+Analyze creators by category:
+
+```bash
+tiktok-miner query-db "SELECT category, COUNT(*) as total, AVG(totalReach) as avg_reach, AVG(compositeEngagementScore) as avg_score FROM CreatorProfile GROUP BY category HAVING COUNT(*) > 10 ORDER BY avg_score DESC"
+```
+
+### Platform Comparison
+
+Compare presence across platforms:
+
+```bash
+tiktok-miner query-db "SELECT COUNT(DISTINCT c.id) as total, COUNT(DISTINCT y.id) as youtube, COUNT(DISTINCT i.id) as instagram, COUNT(DISTINCT t.id) as tiktok, COUNT(DISTINCT tw.id) as twitter FROM CreatorProfile c LEFT JOIN YoutubeMetrics y ON c.id = y.creatorProfileId LEFT JOIN InstagramMetrics i ON c.id = i.creatorProfileId LEFT JOIN TiktokMetrics t ON c.id = t.creatorProfileId LEFT JOIN TwitterMetrics tw ON c.id = tw.creatorProfileId"
+```
+
+### Recently Added
+
+Find recently added creators:
+
+```bash
+tiktok-miner query-db "SELECT name, category, totalReach, createdAt FROM CreatorProfile WHERE createdAt > NOW() - INTERVAL '7 days' ORDER BY createdAt DESC"
+```
+
+### Stale Data
+
+Find creators needing sync:
+
+```bash
+tiktok-miner query-db "SELECT name, category, lastSync FROM CreatorProfile WHERE lastSync < NOW() - INTERVAL '48 hours' ORDER BY lastSync ASC LIMIT 20"
+```
+
+## Best Practices
+
+### Use Parameterized Queries
+
+When possible, use the structured options instead of raw SQL to avoid SQL injection:
+
+```bash
+# Good: Using options
+tiktok-miner query-db --username "user input" --limit 10
+
+# Risky: Raw SQL with user input (be careful!)
+tiktok-miner query-db "SELECT * FROM CreatorProfile WHERE name = 'user input'"
+```
+
+### Limit Large Queries
+
+Always use LIMIT for queries that might return many rows:
+
+```bash
+tiktok-miner query-db "SELECT * FROM CreatorProfile LIMIT 100"
+```
+
+### Use Indexes
+
+The database has indexes on frequently queried columns:
+
+- `category`
+- `compositeEngagementScore`
+- `totalReach`
+
+Structure queries to use these indexes for better performance.
+
+### Transaction Safety
+
+The query-db command is read-only by default. For write operations, use the appropriate creator or discovery commands.
+
+## Output Formats
+
+### Table Format (Default)
+
+Pretty-printed ASCII tables in the terminal.
+
+### JSON Format
+
+Add `--format json` to get machine-readable output:
+
+```bash
+tiktok-miner query-db --username techguru --format json
+```
+
+**Example Output:**
+
+```json
+{
+  "results": [
+    {
+      "id": "abc123-def456",
+      "name": "TechGuru",
+      "category": "tech",
+      "totalReach": 2575000,
+      "compositeEngagementScore": 92.5,
+      "platformIdentifiers": {
+        "youtube_channel_id": "UC...",
+        "instagram_username": "techguru",
+        "twitter_handle": "techguru"
+      }
+    }
+  ],
+  "count": 1,
+  "query": "username: techguru"
+}
+```
+
+### CSV Export
+
+Export query results to CSV:
+
+```bash
+tiktok-miner query-db "SELECT * FROM CreatorProfile" --format csv --output creators.csv
+```
+
+## Troubleshooting
+
+### Connection Errors
+
+If you see database connection errors:
+
+```
+Error: DATABASE_URL is not defined
+```
+
+Ensure your `.env` file contains:
+
+```bash
+DATABASE_URL=postgresql://user:password@host:5432/database
+```
+
+### Query Syntax Errors
+
+For SQL syntax errors, check your query syntax:
+
+```bash
+# Error
+tiktok-miner query-db "SELECT * FORM CreatorProfile"
+# Error: relation "form" does not exist
+
+# Correct
+tiktok-miner query-db "SELECT * FROM CreatorProfile"
+```
+
+### Timeout Errors
+
+For slow queries, add appropriate indexes or use LIMIT:
+
+```bash
+tiktok-miner query-db "SELECT * FROM CreatorProfile LIMIT 100"
+```

@@ -1,0 +1,735 @@
+---
+title: 'Database Setup'
+description: 'Set up PostgreSQL, Prisma, and TimescaleDB for TikTok Miner'
+icon: 'database'
+---
+
+## Overview
+
+TikTok Miner uses PostgreSQL with Prisma ORM for data management and TimescaleDB for time-series analytics. This guide covers database setup, schema overview, migrations, and seeding.
+
+## Prerequisites
+
+- PostgreSQL 14 or higher
+- Node.js 20+ or Bun 1.0+
+- Access to database with superuser privileges (for TimescaleDB)
+
+## Quick Start
+
+### 1. Set Environment Variables
+
+Configure database connection in `app/.env`:
+
+```bash
+PASSWORD=your-database-password
+DATABASE_URL="postgresql://tiktok_miner_user:${PASSWORD}@localhost:5432/tiktok_miner?pgbouncer=true&connection_limit=1"
+DIRECT_URL="postgresql://tiktok_miner_user:${PASSWORD}@localhost:5432/tiktok_miner"
+```
+
+### 2. Install Dependencies
+
+```bash
+cd app
+bun install
+```
+
+### 3. Generate Prisma Client
+
+```bash
+bunx prisma generate
+```
+
+### 4. Run Migrations
+
+```bash
+bunx prisma migrate deploy
+```
+
+### 5. Enable TimescaleDB (Optional)
+
+```bash
+bunx prisma db execute --file ./prisma/migrations/enable_timescaledb.sql
+```
+
+### 6. Seed Database (Optional)
+
+```bash
+bunx ts-node --transpile-only prisma/seed-creators.ts
+```
+
+## Database Schema Overview
+
+The schema is organized into several functional areas:
+
+### Core Models
+
+#### CreatorProfile
+
+Central model for creator information across all platforms:
+
+```prisma
+model CreatorProfile {
+  id                      String   @id @default(uuid())
+  
+  // Basic Information
+  name                    String
+  email                   String?
+  bio                     String?  @db.Text
+  profileImageUrl         String?
+  category                String?  // tech, lifestyle, gaming, etc.
+  tags                    String[] @default([])
+  isVerified              Boolean  @default(false)
+  
+  // Platform Identifiers
+  platformIdentifiers     Json     // JSON object with platform-specific IDs
+  
+  // Calculated Metrics
+  compositeEngagementScore Float?
+  totalReach              Int      @default(0)
+  averageEngagementRate   Float?
+  contentFrequency        Float?
+  audienceQualityScore    Float?
+  
+  // Status
+  lastSync                DateTime @default(now())
+  syncStatus              SyncStatus @default(PENDING)
+  
+  // Relations
+  youtubeMetrics          YoutubeMetrics?
+  twitterMetrics          TwitterMetrics?
+  instagramMetrics        InstagramMetrics?
+  tiktokMetrics           TiktokMetrics?
+  metricsHistory          CreatorMetricsHistory[]
+  engagementAnalytics     EngagementAnalytics[]
+}
+```
+
+**Key Features:**
+- Unified creator identity across platforms
+- Composite metrics aggregated from all platforms
+- Flexible JSON storage for platform-specific identifiers
+- Quality scoring for audience authenticity
+
+### Platform-Specific Metrics
+
+#### TikTokMetrics
+
+```prisma
+model TiktokMetrics {
+  id                String   @id @default(uuid())
+  creatorProfileId  String   @unique
+  userId            String   @unique
+  
+  // Basic Metrics
+  followerCount     Int      @default(0)
+  followingCount    Int      @default(0)
+  videoCount        Int      @default(0)
+  heartCount        BigInt   @default(0)
+  
+  // Engagement Metrics
+  averageViews      Int      @default(0)
+  averageLikes      Int      @default(0)
+  averageComments   Int      @default(0)
+  averageShares     Int      @default(0)
+  engagementRate    Float    @default(0)
+  
+  // Profile Details
+  username          String   @unique
+  nickname          String?
+  profileUrl        String
+  bio               String?  @db.Text
+  isVerified        Boolean  @default(false)
+  
+  creatorProfile    CreatorProfile @relation(fields: [creatorProfileId], references: [id])
+}
+```
+
+#### YouTubeMetrics
+
+Tracks YouTube channel statistics:
+
+```prisma
+model YoutubeMetrics {
+  id                String   @id @default(uuid())
+  creatorProfileId  String   @unique
+  channelId         String   @unique
+  
+  subscriberCount   Int      @default(0)
+  videoCount        Int      @default(0)
+  viewCount         BigInt   @default(0)
+  averageViews      Int      @default(0)
+  averageLikes      Int      @default(0)
+  averageComments   Int      @default(0)
+  engagementRate    Float    @default(0)
+  
+  channelName       String
+  channelUrl        String
+  description       String?  @db.Text
+  country           String?
+  publishedAt       DateTime?
+}
+```
+
+#### InstagramMetrics
+
+```prisma
+model InstagramMetrics {
+  id                String   @id @default(uuid())
+  creatorProfileId  String   @unique
+  accountId         String   @unique
+  
+  followerCount     Int      @default(0)
+  followingCount    Int      @default(0)
+  mediaCount        Int      @default(0)
+  averageLikes      Float    @default(0)
+  averageComments   Float    @default(0)
+  engagementRate    Float    @default(0)
+  
+  username          String   @unique
+  fullName          String?
+  bio               String?  @db.Text
+  isVerified        Boolean  @default(false)
+  isBusinessAccount Boolean  @default(false)
+  
+  // Business Insights
+  reach             Int?     @default(0)
+  impressions       Int?     @default(0)
+  profileViews      Int?     @default(0)
+}
+```
+
+#### TwitterMetrics
+
+```prisma
+model TwitterMetrics {
+  id                String   @id @default(uuid())
+  creatorProfileId  String   @unique
+  userId            String   @unique
+  
+  followerCount     Int      @default(0)
+  followingCount    Int      @default(0)
+  tweetCount        Int      @default(0)
+  averageLikes      Float    @default(0)
+  averageRetweets   Float    @default(0)
+  averageReplies    Float    @default(0)
+  engagementRate    Float    @default(0)
+  
+  username          String   @unique
+  displayName       String
+  bio               String?  @db.Text
+  isVerified        Boolean  @default(false)
+}
+```
+
+### Time-Series Models (TimescaleDB)
+
+#### CreatorMetricsHistory
+
+Historical snapshots of creator metrics:
+
+```prisma
+model CreatorMetricsHistory {
+  id                String   @id @default(uuid())
+  creatorProfileId  String
+  platform          String   // youtube, twitter, instagram, tiktok
+  timestamp         DateTime @default(now())
+  
+  // Snapshot metrics
+  followerCount     Int      @default(0)
+  engagementRate    Float    @default(0)
+  totalPosts        Int      @default(0)
+  avgLikes          Float    @default(0)
+  avgComments       Float    @default(0)
+  avgShares         Float    @default(0)
+  avgViews          Float    @default(0)
+  
+  // Growth metrics
+  followerGrowth    Int      @default(0)
+  engagementGrowth  Float    @default(0)
+  
+  platformMetrics   Json?    // Platform-specific data
+}
+```
+
+**TimescaleDB Features:**
+- Automatic partitioning by time
+- 7-day chunk intervals
+- Compression after 30 days
+- 1-year retention policy
+
+#### EngagementAnalytics
+
+Hourly engagement pattern tracking:
+
+```prisma
+model EngagementAnalytics {
+  id                String   @id @default(uuid())
+  creatorProfileId  String
+  timestamp         DateTime @default(now())
+  
+  // Hourly aggregates
+  hourlyLikes       Int      @default(0)
+  hourlyComments    Int      @default(0)
+  hourlyShares      Int      @default(0)
+  hourlyViews       Int      @default(0)
+  hourlyPosts       Int      @default(0)
+  
+  // Peak times
+  peakEngagementHour Int?
+  peakEngagementDay  Int?
+  
+  // Content performance
+  topPerformingContentIds String[] @default([])
+  avgContentScore   Float    @default(0)
+  audienceActivityPattern Json?
+}
+```
+
+### API & Cost Management
+
+#### ApiUsage
+
+Tracks all API calls and costs:
+
+```prisma
+model ApiUsage {
+  id                String      @id @default(uuid())
+  platform          String      // OpenAI, Anthropic, etc.
+  model             String?     // gpt-4, claude-3, etc.
+  endpoint          String
+  timestamp         DateTime    @default(now())
+  tokensUsed        Int?        @default(0)
+  cost              Float       @default(0)
+  userId            String?
+  requestId         String?     @unique
+  responseTime      Int?        // milliseconds
+  statusCode        Int?
+  error             String?     @db.Text
+  metadata          Json?
+}
+```
+
+#### Budget Management
+
+```prisma
+model Budget {
+  id                String         @id @default(uuid())
+  name              String
+  budgetType        BudgetType     // MONTHLY, QUARTERLY, YEARLY
+  totalAmount       Float
+  spentAmount       Float          @default(0)
+  remainingAmount   Float          @default(0)
+  startDate         DateTime
+  endDate           DateTime
+  status            BudgetStatus   @default(ACTIVE)
+  
+  budgetAllocations BudgetAllocation[]
+  budgetAlerts      BudgetAlert[]
+  costAllocations   CostAllocation[]
+}
+```
+
+### Discovery Pipeline Models
+
+#### InstagramProfile & TiktokProfile
+
+Stores discovered creators with 30-day metrics:
+
+```prisma
+model TiktokProfile {
+  username        String   @id
+  posts30d        Int
+  likesTotal      Int
+  commentsTotal   Int
+  viewsTotal      BigInt
+  sharesTotal     Int
+  
+  nickName        String?
+  avatar          String?
+  signature       String?  @db.Text
+  verified        Boolean  @default(false)
+  followerCount   Int      @default(0)
+  
+  // Calculated metrics
+  avgLikesPerPost Float    @default(0)
+  avgCommentsPerPost Float @default(0)
+  avgViewsPerPost Float    @default(0)
+  engagementRate  Float    @default(0)
+  
+  category        String?  // Discovery keyword
+  lastUpdated     DateTime @default(now()) @updatedAt
+}
+```
+
+## Prisma Configuration
+
+### Schema Location
+
+`app/prisma/schema.prisma`
+
+### Generator Configuration
+
+```prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+```
+
+**Key Points:**
+- `DATABASE_URL`: Used for connection pooling (Supabase pooler, PgBouncer)
+- `DIRECT_URL`: Direct connection for migrations
+
+## Database Migrations
+
+### Creating Migrations
+
+During development:
+
+```bash
+# Create migration from schema changes
+bunx prisma migrate dev --name description_of_changes
+```
+
+### Applying Migrations
+
+In production:
+
+```bash
+# Apply all pending migrations
+bunx prisma migrate deploy
+```
+
+### Available Migrations
+
+The project includes these migrations:
+
+1. **add_creator_models.sql** - Core creator profile tables
+2. **add_api_usage_tracking.sql** - API monitoring tables
+3. **add_webhook_event_model.sql** - Webhook processing
+4. **add_performance_indexes.sql** - Query optimization indexes
+5. **enable_timescaledb.sql** - TimescaleDB setup and hypertables
+
+### Migration Best Practices
+
+<Warning>
+  Always backup your database before running migrations in production!
+</Warning>
+
+```bash
+# Backup before migration
+pg_dump -U tiktok_miner_user tiktok_miner > backup_$(date +%Y%m%d).sql
+
+# Apply migrations
+bunx prisma migrate deploy
+
+# Verify schema
+bunx prisma db pull --print
+```
+
+## TimescaleDB Setup
+
+### Benefits
+
+- **Automatic partitioning**: Data automatically partitioned by time
+- **Compression**: Older data compressed to save space
+- **Continuous aggregates**: Pre-computed rollups for fast queries
+- **Retention policies**: Automatic data cleanup
+
+### Installation
+
+TimescaleDB must be enabled on your PostgreSQL instance:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS timescaledb;
+```
+
+### Hypertable Conversion
+
+Run the TimescaleDB setup:
+
+```bash
+bunx prisma db execute --file ./prisma/migrations/enable_timescaledb.sql
+```
+
+This script:
+1. Enables TimescaleDB extension
+2. Converts tables to hypertables:
+   - `CreatorMetricsHistory` (7-day chunks)
+   - `EngagementAnalytics` (1-day chunks)
+3. Sets up compression policies
+4. Creates continuous aggregates
+5. Configures retention policies
+
+### Continuous Aggregates
+
+#### Daily Creator Metrics
+
+```sql
+CREATE MATERIALIZED VIEW creator_metrics_daily
+WITH (timescaledb.continuous) AS
+SELECT
+  creatorProfileId,
+  platform,
+  time_bucket('1 day', timestamp) AS day,
+  AVG(followerCount) AS avg_followers,
+  AVG(engagementRate) AS avg_engagement_rate,
+  SUM(followerGrowth) AS total_follower_growth
+FROM "CreatorMetricsHistory"
+GROUP BY creatorProfileId, platform, day;
+```
+
+#### Hourly Engagement Patterns
+
+```sql
+CREATE MATERIALIZED VIEW engagement_patterns_hourly
+WITH (timescaledb.continuous) AS
+SELECT
+  creatorProfileId,
+  time_bucket('1 hour', timestamp) AS hour,
+  SUM(hourlyLikes) AS total_likes,
+  SUM(hourlyComments) AS total_comments,
+  AVG(avgContentScore) AS avg_content_score
+FROM "EngagementAnalytics"
+GROUP BY creatorProfileId, hour;
+```
+
+### Custom Analytics Functions
+
+#### Calculate Growth Rate
+
+```sql
+SELECT calculate_growth_rate(
+  'creator-id',
+  'tiktok',
+  'followerCount',
+  INTERVAL '7 days'
+);
+```
+
+#### Get Trending Creators
+
+```sql
+SELECT * FROM get_trending_creators(
+  p_platform := 'tiktok',
+  p_days := 7,
+  p_limit := 10
+);
+```
+
+## Seeding the Database
+
+### Seed Script
+
+The seed script generates realistic test data:
+
+```bash
+bunx ts-node --transpile-only prisma/seed-creators.ts
+```
+
+### What Gets Created
+
+- **50 creator profiles** with varying popularity levels
+- **Multiple platform presences** per creator (2-4 platforms)
+- **Platform-specific metrics** for each active platform
+- **30 days of historical data** for trending analysis
+- **Engagement analytics** with realistic patterns
+
+### Customizing Seed Data
+
+Edit `prisma/seed-creators.ts`:
+
+```typescript
+// Change number of creators
+const NUM_CREATORS = 100;
+
+// Modify categories
+const CATEGORIES = ['tech', 'lifestyle', 'gaming', ...];
+
+// Adjust follower ranges
+followers: Math.floor(
+  faker.number.int({ min: 10000, max: 1000000 }) * popularityFactor
+)
+```
+
+## Database Maintenance
+
+### Vacuum and Analyze
+
+Regular maintenance for optimal performance:
+
+```sql
+-- Vacuum all tables
+VACUUM ANALYZE;
+
+-- Specific table
+VACUUM ANALYZE "CreatorProfile";
+```
+
+### Reindex
+
+```sql
+-- Reindex all tables
+REINDEX DATABASE tiktok_miner;
+
+-- Specific table
+REINDEX TABLE "CreatorProfile";
+```
+
+### Monitor Table Sizes
+
+```sql
+SELECT
+  schemaname,
+  tablename,
+  pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+```
+
+### Check Index Usage
+
+```sql
+SELECT
+  schemaname,
+  tablename,
+  indexname,
+  idx_scan as index_scans
+FROM pg_stat_user_indexes
+ORDER BY idx_scan ASC;
+```
+
+## Automated Setup Script
+
+Use the provided setup script:
+
+```bash
+cd app
+chmod +x scripts/setup-creator-database.sh
+./scripts/setup-creator-database.sh
+```
+
+This script:
+1. Checks dependencies
+2. Generates Prisma client
+3. Creates and applies migrations
+4. Sets up TimescaleDB (if available)
+5. Optionally seeds the database
+6. Verifies the setup
+
+## Backup and Restore
+
+### Full Database Backup
+
+```bash
+pg_dump -U tiktok_miner_user -F c tiktok_miner > backup.dump
+```
+
+### Schema-Only Backup
+
+```bash
+pg_dump -U tiktok_miner_user -s tiktok_miner > schema.sql
+```
+
+### Data-Only Backup
+
+```bash
+pg_dump -U tiktok_miner_user -a tiktok_miner > data.sql
+```
+
+### Restore Database
+
+```bash
+pg_restore -U tiktok_miner_user -d tiktok_miner backup.dump
+```
+
+### Docker Backup
+
+```bash
+# Backup
+docker-compose exec postgres pg_dump -U tiktok_miner_user tiktok_miner > backup.sql
+
+# Restore
+docker-compose exec -T postgres psql -U tiktok_miner_user tiktok_miner < backup.sql
+```
+
+## Troubleshooting
+
+### Migration Errors
+
+<AccordionGroup>
+  <Accordion title="Migration already applied">
+    Check migration status:
+    ```bash
+    bunx prisma migrate status
+    ```
+    
+    Reset if needed (WARNING: deletes all data):
+    ```bash
+    bunx prisma migrate reset
+    ```
+  </Accordion>
+  
+  <Accordion title="Connection pool exhausted">
+    Using connection pooling? Ensure `connection_limit=1` in DATABASE_URL:
+    ```bash
+    DATABASE_URL="postgresql://user:pass@host:5432/db?pgbouncer=true&connection_limit=1"
+    ```
+  </Accordion>
+  
+  <Accordion title="TimescaleDB extension not found">
+    Install TimescaleDB on your PostgreSQL server:
+    ```bash
+    # Ubuntu/Debian
+    sudo apt-get install timescaledb-2-postgresql-14
+    
+    # Or use Timescale Cloud / Supabase with TimescaleDB enabled
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Performance Issues
+
+<AccordionGroup>
+  <Accordion title="Slow queries">
+    Enable query logging in PostgreSQL:
+    ```sql
+    ALTER DATABASE tiktok_miner SET log_statement = 'all';
+    ALTER DATABASE tiktok_miner SET log_min_duration_statement = 100; -- ms
+    ```
+    
+    Check slow queries:
+    ```sql
+    SELECT * FROM pg_stat_statements
+    ORDER BY total_exec_time DESC
+    LIMIT 10;
+    ```
+  </Accordion>
+  
+  <Accordion title="Large table scans">
+    Verify indexes are being used:
+    ```sql
+    EXPLAIN ANALYZE
+    SELECT * FROM "CreatorProfile" WHERE category = 'tech';
+    ```
+    
+    Add missing indexes if needed.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="gear" href="/deployment/environment-variables">
+    Configure database connection strings
+  </Card>
+  <Card title="Docker Deployment" icon="docker" href="/deployment/docker">
+    Deploy with Docker and PostgreSQL container
+  </Card>
+</CardGroup>

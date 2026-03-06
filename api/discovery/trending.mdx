@@ -1,0 +1,314 @@
+---
+title: 'Trending Creators'
+description: 'Discover trending creators and viral content'
+---
+
+# Trending Creators
+
+Discover creators who are currently trending based on growth rate, engagement, and viral content.
+
+## Endpoint
+
+```
+GET /api/discovery/trending
+```
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="platform" type="string">
+  Filter by platform: `youtube`, `twitter`, `instagram`, `tiktok`, `linkedin`, or `all`
+</ParamField>
+
+<ParamField query="category" type="string">
+  Filter by category: `tech`, `gaming`, `lifestyle`, `beauty`, `fitness`, etc.
+</ParamField>
+
+<ParamField query="timeframe" type="string" default="24h">
+  Trending timeframe: `1h`, `6h`, `24h`, `7d`, `30d`
+</ParamField>
+
+<ParamField query="metric" type="string" default="growth">
+  Trending metric: `growth`, `engagement`, `viral_content`, `combined`
+</ParamField>
+
+<ParamField query="minFollowers" type="number">
+  Minimum follower count to be considered
+</ParamField>
+
+<ParamField query="limit" type="number" default="50">
+  Maximum number of results (1-100)
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  <Expandable title="Trending Response">
+    <ResponseField name="trending" type="array">
+      Array of trending creator objects
+      
+      <Expandable title="Trending Creator">
+        <ResponseField name="id" type="string">
+          Creator identifier
+        </ResponseField>
+        
+        <ResponseField name="name" type="string">
+          Creator name
+        </ResponseField>
+        
+        <ResponseField name="platform" type="string">
+          Primary platform
+        </ResponseField>
+        
+        <ResponseField name="category" type="string">
+          Creator category
+        </ResponseField>
+        
+        <ResponseField name="trendingScore" type="number">
+          Trending score (0-100)
+        </ResponseField>
+        
+        <ResponseField name="metrics" type="object">
+          <Expandable title="Trending Metrics">
+            <ResponseField name="currentFollowers" type="number">
+              Current follower count
+            </ResponseField>
+            
+            <ResponseField name="followerGrowth" type="number">
+              Follower growth in timeframe
+            </ResponseField>
+            
+            <ResponseField name="growthRate" type="number">
+              Growth rate percentage
+            </ResponseField>
+            
+            <ResponseField name="engagementRate" type="number">
+              Current engagement rate
+            </ResponseField>
+            
+            <ResponseField name="viralContent" type="number">
+              Number of viral posts in timeframe
+            </ResponseField>
+          </Expandable>
+        </ResponseField>
+        
+        <ResponseField name="reason" type="string">
+          Why this creator is trending
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="timeframe" type="string">
+      Timeframe used for trending calculation
+    </ResponseField>
+    
+    <ResponseField name="updatedAt" type="string">
+      ISO 8601 timestamp of last update
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+<Tabs>
+  <Tab title="TypeScript">
+    ```typescript
+    async function getTrendingCreators(
+      platform: string = 'all',
+      timeframe: string = '24h'
+    ) {
+      const params = new URLSearchParams({
+        platform,
+        timeframe,
+        metric: 'combined',
+        limit: '50'
+      });
+      
+      const response = await fetch(
+        `https://your-domain.com/api/discovery/trending?${params}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${process.env.API_KEY}`
+          }
+        }
+      );
+
+      const { data } = await response.json();
+      return data.trending;
+    }
+
+    // Get trending TikTok creators in the last 24 hours
+    const trending = await getTrendingCreators('tiktok', '24h');
+    
+    trending.forEach(creator => {
+      console.log(
+        `${creator.name}: +${creator.metrics.followerGrowth} followers ` +
+        `(${creator.metrics.growthRate.toFixed(2)}% growth)`
+      );
+    });
+    ```
+  </Tab>
+  
+  <Tab title="JavaScript">
+    ```javascript
+    // Find trending creators in gaming category
+    const response = await fetch(
+      'https://your-domain.com/api/discovery/trending?' +
+      'category=gaming&timeframe=7d&limit=20',
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.API_KEY}`
+        }
+      }
+    );
+
+    const { data } = await response.json();
+    
+    console.log('Top Trending Gaming Creators:');
+    data.trending.slice(0, 10).forEach((creator, index) => {
+      console.log(`${index + 1}. ${creator.name} - Score: ${creator.trendingScore}`);
+    });
+    ```
+  </Tab>
+  
+  <Tab title="cURL">
+    ```bash
+    curl "https://your-domain.com/api/discovery/trending?platform=tiktok&timeframe=24h&limit=50" \
+      -H "Authorization: Bearer YOUR_API_KEY"
+    ```
+  </Tab>
+</Tabs>
+
+### Filter by Engagement Spike
+
+```typescript
+// Find creators with sudden engagement spikes
+const response = await fetch(
+  'https://your-domain.com/api/discovery/trending?' +
+  new URLSearchParams({
+    metric: 'engagement',
+    timeframe: '24h',
+    minFollowers: '10000'
+  }),
+  {
+    headers: { 'Authorization': `Bearer ${apiKey}` }
+  }
+);
+
+const { data } = await response.json();
+
+// Filter for significant spikes
+const engagementSpikes = data.trending.filter(
+  creator => creator.metrics.growthRate > 50
+);
+
+console.log('Creators with engagement spikes:', engagementSpikes);
+```
+
+## Response Example
+
+```json
+{
+  "success": true,
+  "data": {
+    "trending": [
+      {
+        "id": "creator_456",
+        "name": "Gaming Pro",
+        "platform": "tiktok",
+        "category": "gaming",
+        "trendingScore": 95.7,
+        "metrics": {
+          "currentFollowers": 125000,
+          "followerGrowth": 15000,
+          "growthRate": 13.6,
+          "engagementRate": 8.9,
+          "viralContent": 3
+        },
+        "reason": "Viral gaming tutorial gained 2M views in 24 hours",
+        "profileImageUrl": "https://cdn.example.com/avatars/gamingpro.jpg",
+        "isVerified": true
+      },
+      {
+        "id": "creator_789",
+        "name": "Tech Explainer",
+        "platform": "youtube",
+        "category": "tech",
+        "trendingScore": 89.3,
+        "metrics": {
+          "currentFollowers": 450000,
+          "followerGrowth": 22000,
+          "growthRate": 5.1,
+          "engagementRate": 7.2,
+          "viralContent": 1
+        },
+        "reason": "Consistent high engagement and steady growth",
+        "profileImageUrl": "https://cdn.example.com/avatars/techexplainer.jpg",
+        "isVerified": true
+      }
+    ],
+    "timeframe": "24h",
+    "updatedAt": "2026-03-06T12:00:00Z"
+  }
+}
+```
+
+## Algorithm
+
+The trending algorithm combines multiple signals:
+
+### Growth Score (40% weight)
+
+```typescript
+const growthScore = Math.min(
+  (followerGrowth / currentFollowers) * 100,
+  100
+);
+```
+
+### Engagement Score (30% weight)
+
+```typescript
+const engagementScore = (
+  engagementRate / platformAverageEngagement
+) * 50;
+```
+
+### Viral Content Score (20% weight)
+
+```typescript
+const viralScore = Math.min(
+  (viralContentCount / totalPosts) * 100,
+  100
+);
+```
+
+### Velocity Score (10% weight)
+
+```typescript
+const velocity = (
+  currentGrowth - previousGrowth
+) / previousGrowth;
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Search by Keywords" icon="search" href="/api/discovery/keywords">
+    Discover creators by keywords
+  </Card>
+  <Card title="Discovery Queue" icon="list" href="/api/discovery/queue">
+    Manage your discovery queue
+  </Card>
+</CardGroup>

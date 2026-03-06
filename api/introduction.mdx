@@ -1,0 +1,210 @@
+---
+title: 'API Introduction'
+description: 'Get started with the TikTok Miner API for creator discovery and analytics'
+---
+
+# TikTok Miner API
+
+TikTok Miner provides a comprehensive API for discovering, analyzing, and tracking social media creators across multiple platforms including TikTok, Instagram, YouTube, Twitter, and LinkedIn.
+
+## Base URL
+
+```
+https://your-domain.com/api
+```
+
+## Core Features
+
+<CardGroup cols={2}>
+  <Card title="Creator Search" icon="magnifying-glass" href="/api/creators/search">
+    Search and filter creators with advanced faceted search
+  </Card>
+  <Card title="Profile Analytics" icon="chart-line" href="/api/creators/profile">
+    Get detailed creator profiles with cross-platform metrics
+  </Card>
+  <Card title="Engagement Metrics" icon="heart" href="/api/creators/metrics">
+    Track engagement rates and performance over time
+  </Card>
+  <Card title="Trending Content" icon="fire" href="/api/discovery/trending">
+    Discover trending creators and content
+  </Card>
+</CardGroup>
+
+## Key Capabilities
+
+### Multi-Platform Support
+
+TikTok Miner aggregates data from multiple social media platforms:
+
+- **TikTok**: Profile stats, video metrics, engagement rates
+- **Instagram**: Follower counts, post analytics, business insights
+- **YouTube**: Subscriber data, video views, channel performance
+- **Twitter**: Follower metrics, tweet engagement, impressions
+- **LinkedIn**: Professional metrics, post engagement, connections
+
+### Advanced Search
+
+Our search API supports:
+
+- Full-text search with relevance ranking
+- Fuzzy matching for name variations
+- Faceted filtering by platform, category, and tags
+- Range queries for followers and engagement
+- Combined search modes for maximum accuracy
+
+### Real-Time Analytics
+
+- Composite engagement scoring across platforms
+- Historical metrics tracking with TimescaleDB
+- Growth rate calculations (30-day, 90-day)
+- Audience quality scoring
+- Peak engagement time analysis
+
+### Budget Management
+
+- Track API and scraping costs
+- Set budget limits and allocations
+- Receive alerts at configurable thresholds
+- Cost forecasting and optimization recommendations
+
+## Data Models
+
+### CreatorProfile
+
+The core data model for all creator information:
+
+```typescript
+interface CreatorProfile {
+  id: string;
+  name: string;
+  email?: string | null;
+  bio?: string | null;
+  profileImageUrl?: string | null;
+  category?: string | null;
+  tags: string[];
+  isVerified: boolean;
+  platformIdentifiers: {
+    youtube_channel_id?: string;
+    twitter_handle?: string;
+    instagram_username?: string;
+    tiktok_username?: string;
+    linkedin_url?: string;
+  };
+  totalReach: number;
+  compositeEngagementScore?: number | null;
+  averageEngagementRate?: number | null;
+  contentFrequency?: number | null;
+  audienceQualityScore?: number | null;
+  syncStatus: 'PENDING' | 'SYNCING' | 'COMPLETED' | 'FAILED' | 'RATE_LIMITED';
+  lastSync: Date;
+}
+```
+
+### Platform Metrics
+
+Each platform has specific metrics tracked:
+
+```typescript
+interface TiktokMetrics {
+  userId: string;
+  username: string;
+  nickname?: string;
+  followerCount: number;
+  followingCount: number;
+  videoCount: number;
+  heartCount: bigint;
+  averageViews: number;
+  averageLikes: number;
+  averageComments: number;
+  averageShares: number;
+  engagementRate: number;
+  totalViews: bigint;
+  dailyViewGrowth?: number;
+  dailyFollowerGrowth?: number;
+}
+```
+
+## Response Format
+
+All API responses follow a consistent structure:
+
+### Success Response
+
+```json
+{
+  "success": true,
+  "data": {
+    // Response data
+  },
+  "meta": {
+    "timestamp": "2026-03-06T12:00:00Z",
+    "requestId": "req_123456789"
+  }
+}
+```
+
+### Error Response
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid request parameters",
+    "details": [
+      {
+        "field": "limit",
+        "message": "Must be between 1 and 100"
+      }
+    ]
+  },
+  "meta": {
+    "timestamp": "2026-03-06T12:00:00Z",
+    "requestId": "req_123456789"
+  }
+}
+```
+
+## Rate Limits
+
+API rate limits are enforced to ensure service quality:
+
+- **Free Tier**: 100 requests per hour
+- **Pro Tier**: 1,000 requests per hour
+- **Enterprise**: Custom limits
+
+Rate limit information is included in response headers:
+
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1709730000
+```
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `VALIDATION_ERROR` | Request validation failed |
+| `NOT_FOUND` | Resource not found |
+| `RATE_LIMIT_EXCEEDED` | Too many requests |
+| `UNAUTHORIZED` | Authentication required |
+| `FORBIDDEN` | Insufficient permissions |
+| `INTERNAL_ERROR` | Server error occurred |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Learn how to authenticate your API requests
+  </Card>
+  <Card title="Creator Search" icon="search" href="/api/creators/search">
+    Start searching for creators
+  </Card>
+  <Card title="Budget Management" icon="dollar-sign" href="/api/budget/overview">
+    Manage your API spending
+  </Card>
+  <Card title="Monitoring" icon="bell" href="/api/monitoring/alerts">
+    Set up alerts and monitoring
+  </Card>
+</CardGroup>

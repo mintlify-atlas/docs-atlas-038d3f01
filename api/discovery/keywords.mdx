@@ -1,0 +1,462 @@
+---
+title: 'Keyword Discovery'
+description: 'Discover creators by searching keywords and hashtags'
+---
+
+# Keyword Discovery
+
+Discover creators by searching for specific keywords, hashtags, and topics across platforms.
+
+## Endpoint
+
+```
+POST /api/discovery/keywords
+```
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication
+</ParamField>
+
+<ParamField header="Content-Type" type="string" required>
+  Must be `application/json`
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="keywords" type="string[]" required>
+  Array of keywords or hashtags to search for
+</ParamField>
+
+<ParamField body="platform" type="string" default="tiktok">
+  Platform to search: `tiktok`, `instagram`, `youtube`, `twitter`
+</ParamField>
+
+<ParamField body="maxProfilesPerKeyword" type="number" default="50">
+  Maximum profiles to return per keyword (1-100)
+</ParamField>
+
+<ParamField body="resultsPerPage" type="number" default="100">
+  Results per page when scraping (affects performance)
+</ParamField>
+
+<ParamField body="filters" type="object">
+  Additional filters
+  
+  <Expandable title="Filter Options">
+    <ParamField body="minFollowers" type="number">
+      Minimum follower count
+    </ParamField>
+    
+    <ParamField body="minEngagement" type="number">
+      Minimum engagement rate
+    </ParamField>
+    
+    <ParamField body="verified" type="boolean">
+      Only verified accounts
+    </ParamField>
+    
+    <ParamField body="excludeUsernames" type="string[]">
+      Usernames to exclude from results
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  <Expandable title="Discovery Results">
+    <ResponseField name="profiles" type="array">
+      Array of discovered creator profiles
+      
+      <Expandable title="Profile Object">
+        <ResponseField name="id" type="string">
+          Unique profile identifier
+        </ResponseField>
+        
+        <ResponseField name="username" type="string">
+          Platform username
+        </ResponseField>
+        
+        <ResponseField name="nickname" type="string">
+          Display name
+        </ResponseField>
+        
+        <ResponseField name="avatarUrl" type="string">
+          Profile image URL
+        </ResponseField>
+        
+        <ResponseField name="signature" type="string">
+          Bio/description
+        </ResponseField>
+        
+        <ResponseField name="verified" type="boolean">
+          Verification status
+        </ResponseField>
+        
+        <ResponseField name="followerCount" type="number">
+          Total followers
+        </ResponseField>
+        
+        <ResponseField name="followingCount" type="number">
+          Total following
+        </ResponseField>
+        
+        <ResponseField name="videoCount" type="number">
+          Total videos/posts
+        </ResponseField>
+        
+        <ResponseField name="heartCount" type="number">
+          Total likes (TikTok) or equivalent
+        </ResponseField>
+        
+        <ResponseField name="profileUrl" type="string">
+          Link to profile
+        </ResponseField>
+        
+        <ResponseField name="discoveryKeyword" type="string">
+          Keyword that led to discovery
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="totalProfiles" type="number">
+      Total unique profiles discovered
+    </ResponseField>
+    
+    <ResponseField name="keywords" type="string[]">
+      Keywords searched
+    </ResponseField>
+    
+    <ResponseField name="platform" type="string">
+      Platform searched
+    </ResponseField>
+    
+    <ResponseField name="datasetId" type="string">
+      Apify dataset ID for raw data access
+    </ResponseField>
+    
+    <ResponseField name="runId" type="string">
+      Apify run ID for tracking
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+### Search TikTok by Keywords
+
+<Tabs>
+  <Tab title="TypeScript">
+    ```typescript
+    interface KeywordSearchRequest {
+      keywords: string[];
+      platform?: string;
+      maxProfilesPerKeyword?: number;
+      resultsPerPage?: number;
+      filters?: {
+        minFollowers?: number;
+        minEngagement?: number;
+        verified?: boolean;
+        excludeUsernames?: string[];
+      };
+    }
+
+    async function searchByKeywords(
+      keywords: string[],
+      options: Partial<KeywordSearchRequest> = {}
+    ) {
+      const response = await fetch(
+        'https://your-domain.com/api/discovery/keywords',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            keywords,
+            platform: 'tiktok',
+            maxProfilesPerKeyword: 50,
+            ...options
+          })
+        }
+      );
+
+      return await response.json();
+    }
+
+    // Search for fitness influencers
+    const results = await searchByKeywords(
+      ['fitness', 'workout', 'gym'],
+      {
+        filters: {
+          minFollowers: 10000,
+          minEngagement: 3.0,
+          verified: true
+        }
+      }
+    );
+
+    console.log(`Discovered ${results.data.totalProfiles} fitness creators`);
+    ```
+  </Tab>
+  
+  <Tab title="JavaScript">
+    ```javascript
+    // Discover tech creators
+    const response = await fetch(
+      'https://your-domain.com/api/discovery/keywords',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          keywords: ['programming', 'coding', 'developer'],
+          platform: 'tiktok',
+          maxProfilesPerKeyword: 30,
+          filters: {
+            minFollowers: 5000
+          }
+        })
+      }
+    );
+
+    const { data } = await response.json();
+    
+    // Group by follower count
+    const grouped = {
+      micro: data.profiles.filter(p => p.followerCount < 50000),
+      mid: data.profiles.filter(p => p.followerCount >= 50000 && p.followerCount < 500000),
+      macro: data.profiles.filter(p => p.followerCount >= 500000)
+    };
+
+    console.log(`Micro: ${grouped.micro.length}, Mid: ${grouped.mid.length}, Macro: ${grouped.macro.length}`);
+    ```
+  </Tab>
+  
+  <Tab title="cURL">
+    ```bash
+    curl -X POST https://your-domain.com/api/discovery/keywords \
+      -H "Authorization: Bearer YOUR_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "keywords": ["fitness", "workout", "gym"],
+        "platform": "tiktok",
+        "maxProfilesPerKeyword": 50,
+        "filters": {
+          "minFollowers": 10000,
+          "verified": true
+        }
+      }'
+    ```
+  </Tab>
+</Tabs>
+
+### Hashtag Discovery
+
+```typescript
+// Search by hashtags (include # symbol)
+const hashtagResults = await fetch(
+  'https://your-domain.com/api/discovery/keywords',
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      keywords: ['#tech', '#ai', '#webdev'],
+      platform: 'tiktok',
+      maxProfilesPerKeyword: 100
+    })
+  }
+);
+
+const { data } = await hashtagResults.json();
+
+// Deduplicate and rank by engagement
+const uniqueProfiles = Array.from(
+  new Map(data.profiles.map(p => [p.username, p])).values()
+);
+
+const ranked = uniqueProfiles.sort((a, b) => {
+  const engagementA = a.heartCount / a.followerCount;
+  const engagementB = b.heartCount / b.followerCount;
+  return engagementB - engagementA;
+});
+```
+
+### Exclude Already Tracked Creators
+
+```typescript
+// Get existing creators from database
+const existingCreators = await prisma.creatorProfile.findMany({
+  where: {
+    platformIdentifiers: {
+      path: ['tiktok_username'],
+      not: Prisma.JsonNull
+    }
+  },
+  select: {
+    platformIdentifiers: true
+  }
+});
+
+const existingUsernames = existingCreators
+  .map(c => c.platformIdentifiers.tiktok_username)
+  .filter(Boolean);
+
+// Search for new creators
+const response = await fetch(
+  'https://your-domain.com/api/discovery/keywords',
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      keywords: ['gaming'],
+      platform: 'tiktok',
+      filters: {
+        excludeUsernames: existingUsernames
+      }
+    })
+  }
+);
+```
+
+## Response Example
+
+```json
+{
+  "success": true,
+  "data": {
+    "profiles": [
+      {
+        "id": "7234567890",
+        "username": "fitnesspro",
+        "nickname": "Fitness Pro",
+        "avatarUrl": "https://cdn.tiktok.com/avatar.jpg",
+        "signature": "Fitness coach | Workout tips | Healthy lifestyle",
+        "verified": true,
+        "followerCount": 250000,
+        "followingCount": 342,
+        "videoCount": 456,
+        "heartCount": 8900000,
+        "profileUrl": "https://www.tiktok.com/@fitnesspro",
+        "discoveryKeyword": "fitness"
+      },
+      {
+        "id": "7234567891",
+        "username": "workoutqueen",
+        "nickname": "Workout Queen",
+        "avatarUrl": "https://cdn.tiktok.com/avatar2.jpg",
+        "signature": "Home workouts | Nutrition tips",
+        "verified": false,
+        "followerCount": 125000,
+        "followingCount": 189,
+        "videoCount": 289,
+        "heartCount": 4500000,
+        "profileUrl": "https://www.tiktok.com/@workoutqueen",
+        "discoveryKeyword": "workout"
+      }
+    ],
+    "totalProfiles": 2,
+    "keywords": ["fitness", "workout", "gym"],
+    "platform": "tiktok",
+    "datasetId": "dataset_abc123",
+    "runId": "run_xyz789"
+  }
+}
+```
+
+## Implementation
+
+The keyword discovery service uses the TikTok Apify scraper (defined in `/lib/services/tiktok-apify-service.ts:300-375`):
+
+```typescript
+export class TikTokApifyService {
+  async searchProfiles(
+    keywords: string[],
+    limit: number = 50
+  ): Promise<TikTokUser[]> {
+    // Run Apify actor with search queries
+    const result = await this.actorManager.searchTikTokProfiles(keywords, {
+      maxProfilesPerQuery: limit,
+      resultsPerPage: 100,
+    });
+    
+    // Get results from dataset
+    const searchResults = await this.actorManager.getRunDataset(result.datasetId);
+    
+    // Transform and deduplicate
+    const uniqueProfiles = Array.from(
+      new Map(profiles.map(p => [p.uniqueId, p])).values()
+    ).slice(0, limit);
+    
+    return uniqueProfiles;
+  }
+}
+```
+
+## Cost Considerations
+
+Keyword searches use Apify compute units:
+
+- **Estimated cost**: $0.10 - $0.50 per search (depending on `maxProfilesPerKeyword`)
+- **Compute units**: 10-50 CU per search
+- **Duration**: 2-10 minutes per search
+
+Optimize costs by:
+1. Batch keywords together
+2. Cache results for 24 hours
+3. Use `maxProfilesPerKeyword` sparingly
+4. Set appropriate `minFollowers` filters
+
+## Error Responses
+
+### Invalid Platform
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid platform. Must be one of: tiktok, instagram, youtube, twitter"
+  }
+}
+```
+
+### Rate Limit Exceeded
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Apify rate limit exceeded. Please try again in 10 minutes."
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Discovery Queue" icon="list" href="/api/discovery/queue">
+    Add discoveries to your queue
+  </Card>
+  <Card title="Creator Profile" icon="user" href="/api/creators/profile">
+    Fetch detailed profiles
+  </Card>
+</CardGroup>

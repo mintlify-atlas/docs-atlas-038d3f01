@@ -1,0 +1,470 @@
+---
+title: "Twitter Integration"
+description: "Collect Twitter profile data, tweet metrics, and engagement analytics using Apify actors"
+---
+
+## Overview
+
+TikTok Miner's Twitter (X) integration uses Apify's Twitter scraper to collect profile information, tweet metrics, and engagement data from public Twitter accounts. This integration provides access to Twitter data without requiring official API keys.
+
+## How It Works
+
+The Twitter integration operates through the `ActorManager` class:
+
+1. **Profile Scraping**: Collects user information, follower counts, and bio data
+2. **Tweet Analysis**: Retrieves recent tweets with likes, retweets, and replies
+3. **Engagement Metrics**: Calculates average engagement rates and reach
+4. **Data Transformation**: Converts raw Twitter data into unified format
+
+### Architecture
+
+```
+ActorManager.scrapeTwitterProfile() → ApifyClient → Apify API
+        ↓
+TwitterTransformer → UnifiedCreatorData → TwitterMetrics (Database)
+```
+
+**Key Files:**
+- **Actor Manager**: `lib/apify/actor-manager.ts`
+- **Transformers**: `lib/apify/transformers.ts`
+- **Configuration**: `lib/apify/config.ts`
+- **Database Schema**: `prisma/schema.prisma` (TwitterMetrics model)
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# Apify Configuration
+APIFY_API_KEY=your_apify_api_key_here
+APIFY_BASE_URL=https://api.apify.com
+APIFY_DEFAULT_TIMEOUT_SECS=300
+APIFY_MAX_RETRIES=3
+
+# Twitter Scraper
+APIFY_TWITTER_SCRAPER_ID=u6ppkMWAx2E2MpEKL
+```
+
+### Service Setup
+
+```typescript
+import { ActorManager } from '@/lib/apify/actor-manager';
+
+const actorManager = new ActorManager({
+  apiKey: process.env.APIFY_API_KEY!,
+  baseUrl: process.env.APIFY_BASE_URL,
+  maxRetries: 3,
+  requestTimeoutMs: 120000,
+});
+```
+
+## Data Collection
+
+### Profile Metrics
+
+The `TwitterMetrics` table stores:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `userId` | String | Twitter user ID (unique) |
+| `username` | String | Twitter handle (unique) |
+| `displayName` | String | Display name |
+| `followerCount` | Int | Total followers |
+| `followingCount` | Int | Total following |
+| `tweetCount` | Int | Total tweets posted |
+| `listedCount` | Int | Number of lists user appears on |
+| `averageLikes` | Float | Average likes per tweet |
+| `averageRetweets` | Float | Average retweets per tweet |
+| `averageReplies` | Float | Average replies per tweet |
+| `engagementRate` | Float | Calculated engagement rate (%) |
+| `isVerified` | Boolean | Blue/gold checkmark status |
+| `joinedAt` | DateTime | Account creation date |
+| `impressions` | Int | Tweet impressions (if available) |
+| `profileViews` | Int | Profile views (if available) |
+
+### Data Model
+
+```typescript
+interface TwitterData {
+  userId: string;
+  username: string;
+  displayName: string;
+  profileUrl: string;
+  bio?: string;
+  location?: string;
+  website?: string;
+  isVerified: boolean;
+  joinedAt?: Date;
+  followerCount: number;
+  followingCount: number;
+  tweetCount: number;
+  listedCount: number;
+  averageLikes?: number;
+  averageRetweets?: number;
+  averageReplies?: number;
+  engagementRate?: number;
+  impressions?: number;
+  profileViews?: number;
+}
+```
+
+## Usage Examples
+
+<Tabs>
+  <Tab title="Scrape Profile">
+    ```typescript
+    import { ActorManager } from '@/lib/apify/actor-manager';
+
+    const actorManager = new ActorManager({
+      apiKey: process.env.APIFY_API_KEY!,
+    });
+
+    // Scrape a Twitter profile
+    const result = await actorManager.scrapeTwitterProfile('elonmusk', {
+      tweetsDesired: 30,  // Number of tweets to analyze
+      addUserInfo: true,
+    });
+
+    // Get dataset results
+    const data = await actorManager.getRunDataset(
+      result.datasetId,
+      { limit: 1 }
+    );
+
+    const profile = data[0];
+    console.log({
+      username: profile.user?.screen_name,
+      followers: profile.user?.followers_count,
+      tweets: profile.user?.statuses_count,
+      verified: profile.user?.verified,
+    });
+    ```
+  </Tab>
+
+  <Tab title="Calculate Engagement">
+    ```typescript
+    import { TwitterTransformer } from '@/lib/apify/transformers';
+
+    // Transform Twitter data
+    const transformer = new TwitterTransformer();
+    const result = transformer.transform(apifyProfile);
+
+    if (result.validation.isValid && result.data) {
+      const twitter = result.data.platformData?.twitter;
+
+      console.log({
+        engagementRate: twitter?.engagementRate?.toFixed(2) + '%',
+        avgLikes: twitter?.averageLikes,
+        avgRetweets: twitter?.averageRetweets,
+        avgReplies: twitter?.averageReplies,
+      });
+
+      // Calculate follower-to-engagement ratio
+      const ratio = (twitter?.averageLikes || 0) / (twitter?.followerCount || 1);
+      console.log('Engagement ratio:', (ratio * 100).toFixed(3) + '%');
+    }
+    ```
+  </Tab>
+
+  <Tab title="Analyze Tweets">
+    ```typescript
+    // Scrape profile with tweets
+    const result = await actorManager.scrapeTwitterProfile('username', {
+      tweetsDesired: 50,
+      addUserInfo: true,
+    });
+
+    const tweets = await actorManager.getRunDataset(result.datasetId);
+
+    // Analyze tweet performance
+    const tweetMetrics = tweets.map(tweet => ({
+      text: tweet.full_text?.substring(0, 50) + '...',
+      likes: tweet.favorite_count,
+      retweets: tweet.retweet_count,
+      replies: tweet.reply_count,
+      engagement: tweet.favorite_count + tweet.retweet_count + tweet.reply_count,
+    }));
+
+    // Find top performing tweets
+    const topTweets = tweetMetrics
+      .sort((a, b) => b.engagement - a.engagement)
+      .slice(0, 5);
+
+    console.log('Top 5 tweets:', topTweets);
+    ```
+  </Tab>
+
+  <Tab title="Store in Database">
+    ```typescript
+    import { prisma } from '@/lib/db';
+    import { processCreatorProfile } from '@/lib/apify';
+
+    // Transform and validate
+    const result = await processCreatorProfile('twitter', apifyProfile);
+
+    if (result.success) {
+      const { data } = result;
+      const twitter = data.platformData?.twitter;
+
+      // Create creator profile with Twitter metrics
+      const creator = await prisma.creatorProfile.create({
+        data: {
+          name: data.name,
+          bio: data.bio,
+          profileImageUrl: data.profileImageUrl,
+          isVerified: data.isVerified,
+          platformIdentifiers: data.platformIdentifiers,
+          totalReach: data.totalReach,
+          averageEngagementRate: twitter?.engagementRate,
+          twitterMetrics: {
+            create: {
+              userId: twitter!.userId,
+              username: twitter!.username,
+              displayName: twitter!.displayName,
+              profileUrl: twitter!.profileUrl,
+              bio: twitter?.bio,
+              location: twitter?.location,
+              website: twitter?.website,
+              isVerified: twitter!.isVerified,
+              joinedAt: twitter?.joinedAt,
+              followerCount: twitter!.followerCount,
+              followingCount: twitter!.followingCount,
+              tweetCount: twitter!.tweetCount,
+              listedCount: twitter!.listedCount,
+              averageLikes: twitter?.averageLikes || 0,
+              averageRetweets: twitter?.averageRetweets || 0,
+              averageReplies: twitter?.averageReplies || 0,
+              engagementRate: twitter?.engagementRate || 0,
+            },
+          },
+        },
+      });
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Rate Limits & Quotas
+
+### Apify Limits
+
+- **Free Tier**: $5 in free credits monthly
+- **Personal Plan**: Starting at $49/month
+- **Default Timeout**: 300 seconds per run
+- **Memory**: 512 MB default
+- **Concurrent Runs**: Based on subscription tier
+
+### Twitter Scraper Configuration
+
+```typescript
+const input = {
+  startUrls: [{ url: `https://twitter.com/${username}` }],
+  tweetsDesired: 30,    // Limit to reduce cost
+  addUserInfo: true,
+};
+
+const runOptions = {
+  timeoutSecs: 300,
+  memoryMbytes: 512,
+};
+```
+
+### Cost Optimization
+
+<Tip>
+  **Reduce costs** by:
+  - Limiting `tweetsDesired` to necessary amount
+  - Caching profile data in your database
+  - Using shorter timeouts for basic profiles
+  - Batch scraping multiple profiles in scheduled jobs
+  - Monitoring usage with `ApifyRunMetrics`
+</Tip>
+
+```typescript
+// Track costs
+const metrics = await prisma.apifyRunMetrics.create({
+  data: {
+    actorId: 'u6ppkMWAx2E2MpEKL',
+    platform: 'twitter',
+    status: 'SUCCEEDED',
+    startedAt: new Date(),
+    finishedAt: new Date(),
+    duration: 35000,  // milliseconds
+    datasetItemCount: 30,  // tweets + user info
+    costUsd: 0.02,
+  },
+});
+```
+
+## Error Handling
+
+```typescript
+try {
+  const result = await actorManager.scrapeTwitterProfile(username);
+  const data = await actorManager.getRunDataset(result.datasetId);
+  
+  if (!data || data.length === 0) {
+    console.log('Profile not found or suspended');
+  }
+} catch (error) {
+  if (error.message.includes('Actor run failed')) {
+    console.error('Twitter scraper failed');
+  } else if (error.message.includes('timeout')) {
+    console.error('Request timed out');
+  } else if (error.message.includes('rate limit')) {
+    console.error('Hit Twitter rate limit - retry later');
+  } else {
+    console.error('Unexpected error:', error);
+  }
+}
+```
+
+## Data Validation
+
+The `TwitterTransformer` ensures data quality:
+
+```typescript
+import { TwitterTransformer } from '@/lib/apify/transformers';
+
+const transformer = new TwitterTransformer();
+const result = transformer.transform(apifyProfile);
+
+if (!result.validation.isValid) {
+  console.error('Validation errors:', result.validation.errors);
+  console.warn('Warnings:', result.validation.warnings);
+} else {
+  const unifiedData = result.data;
+  // Data is validated and safe to use
+}
+```
+
+**Validation includes:**
+- Username sanitization (removes @)
+- Bio HTML/emoji stripping
+- URL normalization
+- Date parsing and validation
+- Numeric type coercion
+
+## Advanced Features
+
+### Search Tweets
+
+```typescript
+// Note: Would require additional actor configuration
+const searchInput = {
+  searchTerms: ['#AI', '#machinelearning'],
+  tweetsDesired: 100,
+  addUserInfo: true,
+};
+
+// Use the Twitter scraper with search functionality
+```
+
+### Monitor Engagement Over Time
+
+```typescript
+import { prisma } from '@/lib/db';
+
+// Store historical snapshots
+const snapshot = await prisma.creatorMetricsHistory.create({
+  data: {
+    creatorProfileId: creator.id,
+    platform: 'twitter',
+    timestamp: new Date(),
+    followerCount: twitter.followerCount,
+    engagementRate: twitter.engagementRate,
+    totalPosts: twitter.tweetCount,
+    avgLikes: twitter.averageLikes,
+    avgComments: twitter.averageReplies,
+    avgShares: twitter.averageRetweets,
+  },
+});
+```
+
+## Monitoring
+
+### Track Data Quality
+
+```typescript
+const quality = await prisma.apifyDataQualityMetrics.create({
+  data: {
+    platform: 'twitter',
+    totalItemsProcessed: 100,
+    validItemsCount: 97,
+    invalidItemsCount: 3,
+    validationErrors: [
+      { error: 'Missing user ID', count: 2 },
+      { error: 'Invalid date format', count: 1 },
+    ],
+  },
+});
+```
+
+### Set Up Alerts
+
+```typescript
+const alert = await prisma.apifyAlert.create({
+  data: {
+    platform: 'twitter',
+    severity: 'HIGH',
+    alertType: 'FAILURE_RATE',
+    message: 'Twitter scraper failure rate exceeds 5%',
+    conditions: { threshold: 0.05, actual: 0.08 },
+  },
+});
+```
+
+## Best Practices
+
+<Warning>
+  **Twitter Scraping Guidelines:**
+  - Respect Twitter's Terms of Service
+  - Use Apify's proxy rotation to avoid IP bans
+  - Don't scrape suspended or private accounts
+  - Cache results to minimize redundant requests
+  - Monitor for changes in Twitter's HTML structure
+  - Add delays between bulk operations
+</Warning>
+
+## Limitations
+
+- **Protected Accounts**: Cannot scrape tweets from protected accounts
+- **Rate Limits**: Twitter may block excessive scraping attempts
+- **Deleted Tweets**: Cannot access deleted or unavailable tweets
+- **Analytics Data**: Impressions and profile views require Twitter API
+- **Real-time Updates**: Slight delay compared to official API
+- **Media Content**: High-resolution media may not be available
+
+## Troubleshooting
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| "Profile not found" | User may be suspended, deleted, or handle is incorrect |
+| "Rate limit exceeded" | Wait and retry with exponential backoff |
+| "Timeout error" | Increase `timeoutSecs` or reduce `tweetsDesired` |
+| "Invalid data format" | Twitter may have changed their HTML structure |
+
+### Debug Mode
+
+```typescript
+import { logger } from '@/lib/logger';
+
+logger.setLevel('debug');
+
+const result = await actorManager.scrapeTwitterProfile(username);
+logger.info('Actor run completed', {
+  runId: result.runId,
+  datasetId: result.datasetId,
+  status: result.status,
+});
+```
+
+## Next Steps
+
+- [Instagram Integration](/platforms/instagram)
+- [TikTok Data Collection](/platforms/tiktok)
+- [YouTube Analytics](/platforms/youtube)
+- [Cost Management](/advanced/budget-management)
+- [API Monitoring](/advanced/api-monitoring)

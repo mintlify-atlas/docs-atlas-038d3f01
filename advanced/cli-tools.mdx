@@ -1,0 +1,803 @@
+---
+title: 'CLI Tools'
+description: 'Command-line interface for managing creators, discovery, analytics, and system operations'
+icon: 'terminal'
+---
+
+# CLI Tools
+
+TikTok Miner provides a comprehensive command-line interface (CLI) for managing creators, running discovery jobs, analyzing data, and performing administrative tasks.
+
+## Installation & Setup
+
+### Prerequisites
+
+```bash
+# Ensure Node.js 18+ is installed
+node --version
+
+# Install dependencies
+cd app
+npm install
+```
+
+### Environment Configuration
+
+Create a `.env` file with required variables:
+
+```bash
+DATABASE_URL="postgresql://user:password@localhost:5432/tiktok_miner"
+DIRECT_URL="postgresql://user:password@localhost:5432/tiktok_miner"
+
+# API Keys
+OPENAI_API_KEY="sk-..."
+APIFY_TOKEN="apify_api_..."
+
+# Optional: Custom configuration
+OPENAI_MODEL="gpt-4"
+OPENAI_TEMPERATURE="0.7"
+```
+
+### Running the CLI
+
+```bash
+# Direct execution
+node cli/index.js [command]
+
+# Or with ts-node for development
+ts-node cli/index.ts [command]
+
+# Make executable (optional)
+chmod +x cli/index.ts
+./cli/index.ts [command]
+```
+
+**Main Entry Point:** `cli/index.ts:1-35`
+
+## Available Commands
+
+The CLI is organized into logical command groups:
+
+```
+tiktok-miner
+├── creators       → Creator management
+├── discovery      → Discovery pipeline
+├── candidates     → Candidate operations
+├── db            → Database queries
+├── analysis      → Job description & repo analysis
+├── email         → Email operations
+└── communication → Batch email & letters
+```
+
+## Creator Commands
+
+Manage creator profiles and metrics.
+
+### List Creators
+
+```bash
+# List all creators
+tiktok-miner creators list
+
+# Filter by platform
+tiktok-miner creators list --platform tiktok
+
+# Filter by minimum followers
+tiktok-miner creators list --min-followers 10000
+
+# Sort by engagement rate
+tiktok-miner creators list --sort engagement --order desc
+```
+
+### View Creator Details
+
+```bash
+# Get detailed creator information
+tiktok-miner creators get <creator-id>
+
+# Get by username
+tiktok-miner creators get --username @techreviewer
+
+# Include metrics history
+tiktok-miner creators get <creator-id> --include-history
+```
+
+### Update Creator Data
+
+```bash
+# Manually update creator metrics
+tiktok-miner creators update <creator-id>
+
+# Force full refresh
+tiktok-miner creators update <creator-id> --force
+
+# Update multiple creators
+tiktok-miner creators bulk-update --ids creator1,creator2,creator3
+```
+
+### Export Creator Data
+
+```bash
+# Export to CSV
+tiktok-miner creators export --format csv --output creators.csv
+
+# Export with filters
+tiktok-miner creators export \
+  --platform tiktok \
+  --min-followers 50000 \
+  --format json \
+  --output top-creators.json
+```
+
+## Discovery Commands
+
+Control the automated discovery pipeline.
+
+### Start Discovery Pipeline
+
+```bash
+# Start the discovery pipeline
+tiktok-miner discovery start
+
+# Start with specific mode
+tiktok-miner discovery start --mode aggressive
+```
+
+### Stop Discovery Pipeline
+
+```bash
+# Gracefully stop the pipeline
+tiktok-miner discovery stop
+
+# Force immediate stop
+tiktok-miner discovery stop --force
+```
+
+### Pipeline Status
+
+```bash
+# Check pipeline status
+tiktok-miner discovery status
+
+# Detailed queue metrics
+tiktok-miner discovery status --verbose
+```
+
+Example output:
+
+```
+Discovery Pipeline Status
+========================
+Status: Running
+Uptime: 4h 23m
+
+Queue Metrics:
+  creator-discovery:
+    Waiting: 15
+    Active: 5
+    Completed: 1,234
+    Failed: 12
+  
+  creator-evaluation:
+    Waiting: 45
+    Active: 10
+    Completed: 856
+    Failed: 8
+  
+  creator-aggregation:
+    Waiting: 8
+    Active: 3
+    Completed: 789
+    Failed: 5
+
+Scheduled Jobs: 3 active
+```
+
+### Manual Discovery Jobs
+
+```bash
+# Discover creators by trending topic
+tiktok-miner discovery trending \
+  --topic "AI tutorials" \
+  --platform tiktok \
+  --limit 50
+
+# Explore a specific category
+tiktok-miner discovery category \
+  --category "sustainable living" \
+  --limit 20
+
+# Refresh existing creators
+tiktok-miner discovery refresh \
+  --creator-ids id1,id2,id3
+
+# Refresh all creators from last week
+tiktok-miner discovery refresh --since 7d
+```
+
+### Discovery Reports
+
+```bash
+# Generate discovery report
+tiktok-miner discovery report \
+  --start-date 2026-03-01 \
+  --end-date 2026-03-06
+
+# Export report to file
+tiktok-miner discovery report \
+  --start-date 2026-03-01 \
+  --end-date 2026-03-06 \
+  --output report.json
+```
+
+Example output:
+
+```
+Discovery Report: 2026-03-01 to 2026-03-06
+==========================================
+
+Statistics:
+  Creators Discovered: 245
+  Creators Added: 178
+  Creators Rejected: 67
+  Average Quality Score: 7.8/10
+
+Platform Breakdown:
+  TikTok: 145 (59%)
+  Instagram: 68 (28%)
+  Twitter: 32 (13%)
+
+Top Sources:
+  1. Trending Topics: 98 (40%)
+  2. Category Exploration: 87 (36%)
+  3. Related Creators: 60 (24%)
+
+Trends:
+  Discovery Rate: 41 creators/day
+  Acceptance Rate: 72.7%
+  Growth Rate: +15% vs previous period
+```
+
+## Database Commands
+
+Query and manage database records.
+
+### Query Creators
+
+```bash
+# SQL-like queries
+tiktok-miner db query "SELECT * FROM CreatorProfile WHERE followerCount > 100000"
+
+# Count records
+tiktok-miner db count CreatorProfile
+
+# Get recent records
+tiktok-miner db recent CreatorProfile --limit 10
+```
+
+### Database Statistics
+
+```bash
+# Overall database stats
+tiktok-miner db stats
+
+# Platform-specific stats
+tiktok-miner db stats --platform tiktok
+```
+
+### Data Cleanup
+
+```bash
+# Remove duplicate creators
+tiktok-miner db deduplicate
+
+# Archive old metrics (>90 days)
+tiktok-miner db archive --older-than 90d
+
+# Clean up failed jobs
+tiktok-miner db cleanup-jobs
+```
+
+## Analysis Commands
+
+Analyze job descriptions and repository data.
+
+### Analyze Job Description
+
+```bash
+# Analyze job description from file
+tiktok-miner analysis job-description analyze \
+  --file job-description.txt
+
+# Use LLM for enhanced analysis
+tiktok-miner analysis job-description analyze \
+  --file job-description.txt \
+  --use-llm
+
+# Analyze from URL
+tiktok-miner analysis job-description analyze \
+  --url https://example.com/careers/senior-dev
+```
+
+**Implementation:** `cli/handlers/analyze-jd.ts:10-45`
+
+Example output:
+
+```
+Job Description Analysis
+========================
+
+Seniority: Senior
+Years of Experience: 5+
+
+Languages:
+  - TypeScript
+  - Python
+  - Go
+
+Frameworks:
+  - React
+  - Node.js
+  - FastAPI
+
+Other Keywords:
+  - Microservices
+  - Kubernetes
+  - PostgreSQL
+  - AWS
+  - CI/CD
+
+Parsing Method: LLM
+Confidence: 92%
+```
+
+### Repository Analysis
+
+```bash
+# Analyze GitHub repository
+tiktok-miner analysis repository analyze \
+  --repo https://github.com/user/repo
+
+# Analyze with detailed metrics
+tiktok-miner analysis repository analyze \
+  --repo https://github.com/user/repo \
+  --detailed
+```
+
+## Email Commands
+
+Manage email communications.
+
+### Send Individual Email
+
+```bash
+# Send email to creator
+tiktok-miner email send \
+  --to creator@example.com \
+  --subject "Partnership Opportunity" \
+  --template partnership \
+  --data '{"name":"John","company":"TechCorp"}'
+```
+
+### Batch Email Operations
+
+```bash
+# Send batch emails
+tiktok-miner communication batch-email send \
+  --recipients recipients.csv \
+  --template outreach \
+  --schedule "2026-03-10 09:00"
+
+# Check batch status
+tiktok-miner communication batch-email status <batch-id>
+
+# Cancel scheduled batch
+tiktok-miner communication batch-email cancel <batch-id>
+```
+
+### Email Templates
+
+```bash
+# List available templates
+tiktok-miner email templates list
+
+# Preview template
+tiktok-miner email templates preview partnership \
+  --data '{"name":"John"}'
+
+# Create new template
+tiktok-miner email templates create \
+  --name custom-outreach \
+  --file template.html
+```
+
+## Candidate Commands
+
+Manage candidate records (if applicable to your use case).
+
+```bash
+# List candidates
+tiktok-miner candidates list
+
+# Get candidate details
+tiktok-miner candidates get <candidate-id>
+
+# Update candidate status
+tiktok-miner candidates update <candidate-id> \
+  --status interviewed
+
+# Export candidates
+tiktok-miner candidates export \
+  --status qualified \
+  --output qualified-candidates.csv
+```
+
+## MCP Server
+
+TikTok Miner includes an MCP (Model Context Protocol) server for integration with AI assistants like Claude.
+
+### Starting MCP Server
+
+```bash
+# Start MCP server
+node cli/mcp/index.js
+
+# Or in development
+ts-node cli/mcp/index.ts
+```
+
+**Implementation:** `cli/mcp/index.ts:36-61`
+
+### MCP Configuration
+
+Add to your Claude Desktop config:
+
+```json
+{
+  "mcpServers": {
+    "tiktok-miner": {
+      "command": "node",
+      "args": ["/path/to/app/cli/mcp/index.js"],
+      "env": {
+        "DATABASE_URL": "postgresql://...",
+        "MCP_SERVER": "true"
+      }
+    }
+  }
+}
+```
+
+### Available MCP Tools
+
+The MCP server exposes CLI functionality as tools:
+
+- `list_creators` - List and filter creators
+- `get_creator_details` - Get detailed creator information
+- `run_discovery` - Trigger discovery jobs
+- `get_pipeline_status` - Check pipeline status
+- `generate_report` - Generate analytics reports
+- `query_database` - Execute database queries
+
+## Scripting & Automation
+
+### Shell Scripts
+
+Create automated workflows:
+
+```bash
+#!/bin/bash
+# daily-discovery.sh
+
+echo "Starting daily discovery workflow..."
+
+# Run trending discovery
+tiktok-miner discovery trending \
+  --topic "tech reviews" \
+  --platform tiktok \
+  --limit 30
+
+# Refresh top creators
+tiktok-miner discovery refresh \
+  --min-followers 100000 \
+  --platform tiktok
+
+# Generate report
+tiktok-miner discovery report \
+  --start-date $(date -d '1 day ago' +%Y-%m-%d) \
+  --end-date $(date +%Y-%m-%d) \
+  --output reports/daily-$(date +%Y%m%d).json
+
+echo "Daily discovery completed!"
+```
+
+### Cron Jobs
+
+```bash
+# Add to crontab
+crontab -e
+
+# Run discovery twice daily (6 AM and 6 PM)
+0 6,18 * * * /path/to/daily-discovery.sh
+
+# Generate weekly report (Sunday at midnight)
+0 0 * * 0 /path/to/weekly-report.sh
+
+# Cleanup old data (monthly)
+0 2 1 * * tiktok-miner db archive --older-than 90d
+```
+
+### Node.js Scripts
+
+Use the CLI programmatically:
+
+```typescript
+import { execSync } from 'child_process';
+
+function runDiscovery(topic: string, limit: number) {
+  const command = `tiktok-miner discovery trending \
+    --topic "${topic}" \
+    --platform tiktok \
+    --limit ${limit}`;
+  
+  const output = execSync(command, { encoding: 'utf8' });
+  return JSON.parse(output);
+}
+
+const result = runDiscovery('AI tutorials', 50);
+console.log(`Found ${result.creatorsQueued} creators`);
+```
+
+## Configuration
+
+### CLI Configuration File
+
+Create `cli-config.json` for default settings:
+
+```json
+{
+  "discovery": {
+    "defaultPlatform": "tiktok",
+    "defaultLimit": 50,
+    "mode": "standard"
+  },
+  "export": {
+    "defaultFormat": "json",
+    "outputDir": "./exports"
+  },
+  "database": {
+    "defaultLimit": 100
+  },
+  "alerts": {
+    "email": "admin@example.com",
+    "slack": "https://hooks.slack.com/..."
+  }
+}
+```
+
+### Environment Variables
+
+```bash
+# Database
+DATABASE_URL="postgresql://..."
+
+# APIs
+OPENAI_API_KEY="sk-..."
+APIFY_TOKEN="apify_api_..."
+
+# CLI Behavior
+CLI_VERBOSE=true
+CLI_COLOR=true
+CLI_OUTPUT_FORMAT=json
+
+# Discovery
+DISCOVERY_CONCURRENCY=5
+DISCOVERY_RETRY_ATTEMPTS=3
+
+# Logging
+LOG_LEVEL=info
+LOG_FILE=./logs/cli.log
+```
+
+## Output Formats
+
+The CLI supports multiple output formats:
+
+### JSON Output
+
+```bash
+tiktok-miner creators list --format json
+```
+
+```json
+[
+  {
+    "id": "creator-123",
+    "username": "@techreviewer",
+    "platform": "tiktok",
+    "followerCount": 125000,
+    "engagementRate": 8.5
+  }
+]
+```
+
+### CSV Output
+
+```bash
+tiktok-miner creators list --format csv
+```
+
+```csv
+id,username,platform,followerCount,engagementRate
+creator-123,@techreviewer,tiktok,125000,8.5
+creator-456,@lifestyleblogger,instagram,89000,12.3
+```
+
+### Table Output (Default)
+
+```bash
+tiktok-miner creators list --format table
+```
+
+```
+┌──────────────┬──────────────────┬───────────┬───────────────┬────────────────┐
+│ ID           │ Username         │ Platform  │ Followers     │ Engagement     │
+├──────────────┼──────────────────┼───────────┼───────────────┼────────────────┤
+│ creator-123  │ @techreviewer    │ tiktok    │ 125,000       │ 8.5%           │
+│ creator-456  │ @lifestyle...    │ instagram │ 89,000        │ 12.3%          │
+└──────────────┴──────────────────┴───────────┴───────────────┴────────────────┘
+```
+
+## Error Handling
+
+### Common Errors
+
+```bash
+# Database connection error
+Error: Could not connect to database
+Solution: Check DATABASE_URL in .env file
+
+# Missing API key
+Error: OPENAI_API_KEY not set
+Solution: Set OPENAI_API_KEY in .env file
+
+# Invalid command
+Error: Unknown command 'xyz'
+Solution: Run 'tiktok-miner --help' to see available commands
+
+# Permission denied
+Error: EACCES: permission denied
+Solution: Run 'chmod +x cli/index.ts' or use 'node' to execute
+```
+
+### Debug Mode
+
+```bash
+# Enable verbose logging
+tiktok-miner --verbose discovery start
+
+# Enable debug mode
+DEBUG=* tiktok-miner discovery start
+
+# Log to file
+tiktok-miner discovery start --log-file debug.log
+```
+
+## Performance Tips
+
+### 1. Use Filters to Reduce Output
+
+```bash
+# Slow: Load all creators
+tiktok-miner creators list
+
+# Fast: Filter at database level
+tiktok-miner creators list --min-followers 50000
+```
+
+### 2. Export Large Datasets
+
+```bash
+# Don't print to console
+tiktok-miner creators list --limit 10000
+
+# Export to file instead
+tiktok-miner creators export --format csv --output creators.csv
+```
+
+### 3. Batch Operations
+
+```bash
+# Slow: Update one at a time
+for id in id1 id2 id3; do
+  tiktok-miner creators update $id
+done
+
+# Fast: Bulk update
+tiktok-miner creators bulk-update --ids id1,id2,id3
+```
+
+<Accordion title="FAQ: CLI Tools">
+
+**Q: How do I add a custom command?**
+
+A: Create a new command file in `cli/commands/` and register it in `cli/index.ts`:
+
+```typescript
+import { Command } from 'commander';
+
+export function registerMyCommands(program: Command) {
+  const myGroup = program
+    .command('my-group')
+    .description('My custom commands');
+  
+  myGroup
+    .command('my-command')
+    .description('Does something custom')
+    .action(async () => {
+      // Implementation
+    });
+}
+
+// In cli/index.ts
+import { registerMyCommands } from './commands/my-commands';
+registerMyCommands(program);
+```
+
+**Q: Can I use the CLI in CI/CD pipelines?**
+
+A: Yes, the CLI is designed for automation:
+
+```yaml
+# GitHub Actions example
+- name: Run Discovery
+  run: |
+    node cli/index.js discovery trending \
+      --topic "${{ github.event.inputs.topic }}" \
+      --format json > discovery-result.json
+```
+
+**Q: How do I handle credentials securely?**
+
+A: Use environment variables or secret management:
+
+```bash
+# Use .env file (local)
+DATABASE_URL=postgresql://...
+
+# Or inject via environment (CI/CD)
+export DATABASE_URL="${{ secrets.DATABASE_URL }}"
+tiktok-miner discovery start
+```
+
+**Q: Can I run multiple CLI instances in parallel?**
+
+A: Yes, but be careful with database concurrency and rate limits:
+
+```bash
+# Run discovery for multiple topics in parallel
+tiktok-miner discovery trending --topic "tech" &
+tiktok-miner discovery trending --topic "gaming" &
+tiktok-miner discovery trending --topic "lifestyle" &
+wait
+```
+
+**Q: How do I customize output colors?**
+
+A: Set the `CLI_COLOR` environment variable or use `--no-color`:
+
+```bash
+# Disable colors
+tiktok-miner creators list --no-color
+
+# Or via environment
+CLI_COLOR=false tiktok-miner creators list
+```
+
+</Accordion>
+
+## Next Steps
+
+- Integrate CLI with [Discovery Pipeline](/advanced/discovery-pipeline) automation
+- Set up monitoring with [API Monitoring](/advanced/api-monitoring)
+- Create budget controls with [Budget Management](/advanced/budget-management)
+- Build custom workflows using the MCP server

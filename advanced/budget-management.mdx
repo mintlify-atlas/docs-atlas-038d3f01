@@ -1,0 +1,591 @@
+---
+title: 'Budget Management'
+description: 'Comprehensive budget tracking, cost allocation, and optimization for API and scraping operations'
+icon: 'chart-line'
+---
+
+# Budget Management
+
+The Budget Management system provides sophisticated tracking and control over operational costs across all API services and data scraping operations.
+
+## Architecture
+
+```
+┌─────────────┐
+│   Budget    │  → Total allocation for a time period
+└──────┬──────┘
+       │
+       ├─────┐ BudgetAllocation (per service/platform)
+       │     ├─ API Services
+       │     ├─ Scraping (Apify)
+       │     └─ Storage
+       │
+       ├─────┐ CostAllocation (actual spending)
+       │     ├─ Linked to ApiUsage
+       │     └─ Linked to ApifyRunMetrics
+       │
+       └─────┐ BudgetAlert (threshold warnings)
+             ├─ 80% warning
+             ├─ 90% critical
+             └─ 100% exceeded
+```
+
+## Core Concepts
+
+### Budget Types
+
+```typescript
+enum BudgetType {
+  MONTHLY,    // Recurring monthly budget
+  QUARTERLY,  // Quarterly allocation
+  YEARLY,     // Annual budget
+  PROJECT,    // One-time project budget
+  UNLIMITED   // No budget limits (monitoring only)
+}
+```
+
+### Service Types
+
+```typescript
+enum ServiceType {
+  API,         // API calls (OpenAI, Anthropic, etc.)
+  SCRAPING,    // Data scraping (Apify actors)
+  STORAGE,     // Database and file storage
+  PROCESSING,  // Data processing compute
+  MONITORING,  // Monitoring and alerting
+  OTHER        // Miscellaneous costs
+}
+```
+
+## Creating Budgets
+
+### Basic Budget Creation
+
+```typescript
+import { BudgetManager } from './lib/services/budget-manager';
+import { PrismaClient, BudgetType, ServiceType } from '@prisma/client';
+
+const prisma = new PrismaClient();
+const budgetManager = new BudgetManager(prisma);
+
+const budget = await budgetManager.createBudget({
+  name: 'March 2026 Operations',
+  description: 'Monthly budget for all API and scraping operations',
+  budgetType: BudgetType.MONTHLY,
+  totalAmount: 5000.00,
+  startDate: new Date('2026-03-01'),
+  endDate: new Date('2026-03-31'),
+  autoRenewal: true,
+  createdBy: 'admin-user-id'
+});
+```
+
+**Location:** `lib/services/budget-manager.ts:99-149`
+
+### Budget with Allocations
+
+Create a budget with pre-allocated amounts for different services:
+
+```typescript
+const budget = await budgetManager.createBudget({
+  name: 'Q1 2026 Budget',
+  budgetType: BudgetType.QUARTERLY,
+  totalAmount: 15000.00,
+  startDate: new Date('2026-01-01'),
+  endDate: new Date('2026-03-31'),
+  allocations: [
+    {
+      platform: 'OpenAI',
+      serviceType: ServiceType.API,
+      allocatedAmount: 5000.00,
+      priority: 'HIGH'
+    },
+    {
+      platform: 'Apify',
+      serviceType: ServiceType.SCRAPING,
+      allocatedAmount: 8000.00,
+      priority: 'HIGH'
+    },
+    {
+      platform: 'AWS',
+      serviceType: ServiceType.STORAGE,
+      allocatedAmount: 2000.00,
+      priority: 'MEDIUM'
+    }
+  ]
+});
+```
+
+### Budget Validation
+
+The system automatically validates that allocations don't exceed the total budget:
+
+```typescript
+// This will throw an error
+const invalidBudget = await budgetManager.createBudget({
+  name: 'Invalid Budget',
+  totalAmount: 1000.00,
+  allocations: [
+    { platform: 'OpenAI', serviceType: 'API', allocatedAmount: 800.00 },
+    { platform: 'Apify', serviceType: 'SCRAPING', allocatedAmount: 500.00 }
+  ]
+});
+// Error: Total allocation (1300) exceeds budget total (1000)
+```
+
+## Tracking Costs
+
+### Manual Cost Allocation
+
+```typescript
+const costAllocation = await budgetManager.allocateCost({
+  budgetId: budget.id,
+  platform: 'OpenAI',
+  serviceType: ServiceType.API,
+  costAmount: 45.75,
+  description: 'GPT-4 API calls for creator analysis',
+  costDate: new Date(),
+  metadata: {
+    tokensUsed: 125000,
+    model: 'gpt-4',
+    requestCount: 50
+  }
+});
+```
+
+**Location:** `lib/services/budget-manager.ts:276-327`
+
+### Automatic Cost Tracking
+
+Costs are automatically tracked when using the API Usage Tracker:
+
+```typescript
+import { APIUsageTracker } from './lib/services/api-usage-tracker';
+
+const tracker = new APIUsageTracker(prisma);
+
+// This automatically creates a cost allocation
+await tracker.trackRequest({
+  platform: 'OpenAI',
+  model: 'gpt-4',
+  endpoint: '/v1/chat/completions',
+  tokensUsed: 2500,
+  cost: 0.15,  // Automatically calculated
+  userId: 'user-123'
+});
+```
+
+### Linking to External Systems
+
+Link cost allocations to API usage or Apify runs:
+
+```typescript
+await budgetManager.allocateCost({
+  budgetId: budget.id,
+  platform: 'Apify',
+  serviceType: ServiceType.SCRAPING,
+  costAmount: 12.50,
+  apiUsageId: apiUsageRecord.id,      // Link to ApiUsage
+  apifyRunId: apifyRunMetric.id,      // Link to ApifyRunMetrics
+  metadata: {
+    actorId: 'instagram-scraper',
+    datasetItems: 1500
+  }
+});
+```
+
+## Budget Monitoring
+
+### Get Budget Summary
+
+```typescript
+const summary = await budgetManager.getBudget(budget.id);
+
+console.log(`Total: $${summary.budget.totalAmount}`);
+console.log(`Spent: $${summary.totalSpent}`);
+console.log(`Remaining: $${summary.totalRemaining}`);
+console.log(`Percentage Used: ${summary.spentPercentage.toFixed(1)}%`);
+console.log(`Daily Burn Rate: $${summary.burnRate.toFixed(2)}/day`);
+
+if (summary.projectedEndDate) {
+  console.log(`Projected to last until: ${summary.projectedEndDate}`);
+}
+```
+
+**Location:** `lib/services/budget-manager.ts:154-202`
+
+### List All Budgets
+
+```typescript
+// Get all active budgets
+const activeBudgets = await budgetManager.listBudgets({
+  status: 'ACTIVE'
+});
+
+// Get budgets by type
+const monthlyBudgets = await budgetManager.listBudgets({
+  budgetType: BudgetType.MONTHLY
+});
+
+// Get budgets in date range
+const q1Budgets = await budgetManager.listBudgets({
+  startDate: new Date('2026-01-01'),
+  endDate: new Date('2026-03-31')
+});
+```
+
+**Location:** `lib/services/budget-manager.ts:237-271`
+
+## Budget Alerts
+
+Alerts are automatically created when spending reaches threshold percentages.
+
+### Alert Thresholds
+
+```typescript
+enum BudgetAlertType {
+  THRESHOLD_80,         // 80% of budget spent
+  THRESHOLD_90,         // 90% of budget spent
+  THRESHOLD_100,        // 100% of budget spent
+  BUDGET_EXCEEDED,      // Over budget
+  SPENDING_SPIKE,       // Unusual spending pattern
+  LOW_BUDGET,           // Running low on remaining budget
+  ALLOCATION_DEPLETED   // Specific allocation exhausted
+}
+```
+
+### Configuring Alert Thresholds
+
+```typescript
+const budget = await budgetManager.updateBudget(budgetId, {
+  alertThreshold80: true,   // Enable 80% alert
+  alertThreshold90: true,   // Enable 90% alert
+  alertThreshold100: false  // Disable 100% alert
+});
+```
+
+**Location:** `lib/services/budget-manager.ts:206-232`
+
+### Alert Checking
+
+Alerts are automatically checked after each cost allocation:
+
+```typescript
+// Internal method called automatically
+private async checkBudgetAlerts(budgetId: string): Promise<void> {
+  const budget = await this.prisma.budget.findUnique({
+    where: { id: budgetId },
+    include: { budgetAlerts: { where: { isResolved: false } } }
+  });
+
+  const spentPercentage = (budget.spentAmount / budget.totalAmount) * 100;
+  
+  if (spentPercentage >= 80 && budget.alertThreshold80) {
+    await this.createBudgetAlert(budget, 'THRESHOLD_80', spentPercentage);
+  }
+}
+```
+
+**Location:** `lib/services/budget-manager.ts:401-445`
+
+## Budget Analytics
+
+### Global Analytics
+
+Get comprehensive analytics across all budgets:
+
+```typescript
+const analytics = await budgetManager.getBudgetAnalytics(
+  new Date('2026-01-01'),  // startDate (optional)
+  new Date('2026-03-31')   // endDate (optional)
+);
+
+console.log('Budget Overview:');
+console.log(`Total Budgets: ${analytics.totalBudgets}`);
+console.log(`Active Budgets: ${analytics.activeBudgets}`);
+console.log(`Total Allocated: $${analytics.totalAllocated}`);
+console.log(`Total Spent: $${analytics.totalSpent}`);
+console.log(`Total Remaining: $${analytics.totalRemaining}`);
+console.log(`Average Spent: ${analytics.averageSpentPercentage.toFixed(1)}%`);
+
+console.log('\nAlerts:');
+console.log(`Budgets Exceeded: ${analytics.budgetsExceeded}`);
+console.log(`Budgets Near Limit: ${analytics.budgetsNearLimit}`);
+
+console.log('\nTop Spending Platforms:');
+analytics.topSpendingPlatforms.forEach((platform, index) => {
+  console.log(`${index + 1}. ${platform.platform}: $${platform.totalSpent.toFixed(2)}`);
+});
+```
+
+**Location:** `lib/services/budget-manager.ts:332-396`
+
+### Monthly Trend Analysis
+
+```typescript
+const analytics = await budgetManager.getBudgetAnalytics();
+
+console.log('Monthly Spending Trend:');
+analytics.monthlyTrend.forEach(month => {
+  console.log(`${month.month}: $${month.totalSpent.toFixed(2)} (${month.budgetUtilization.toFixed(1)}% utilization)`);
+});
+```
+
+## Cost Optimization
+
+### Cost Optimization Recommendations
+
+The system can generate optimization recommendations:
+
+```typescript
+model CostOptimization {
+  id                String
+  platform          String
+  serviceType       ServiceType
+  optimizationType  OptimizationType     // REDUCE_FREQUENCY, CHANGE_TIER, etc.
+  currentCost       Float
+  projectedCost     Float
+  potentialSavings  Float
+  recommendation    String               // Detailed recommendation
+  impact            OptimizationImpact   // LOW, MEDIUM, HIGH
+  status            OptimizationStatus   // PENDING, APPROVED, IMPLEMENTED
+}
+```
+
+### Example Optimizations
+
+```typescript
+// Example: Reduce API call frequency
+const optimization = {
+  platform: 'OpenAI',
+  serviceType: 'API',
+  optimizationType: 'REDUCE_FREQUENCY',
+  currentCost: 500.00,
+  projectedCost: 350.00,
+  potentialSavings: 150.00,
+  recommendation: 'Reduce creator analysis frequency from hourly to every 4 hours. Minimal impact on data freshness.',
+  impact: 'LOW'
+};
+
+// Example: Change scraping tier
+const optimization2 = {
+  platform: 'Apify',
+  serviceType: 'SCRAPING',
+  optimizationType: 'CHANGE_TIER',
+  currentCost: 800.00,
+  projectedCost: 600.00,
+  potentialSavings: 200.00,
+  recommendation: 'Switch to standard tier for Instagram scraping. 95% success rate vs 98% on premium tier.',
+  impact: 'MEDIUM'
+};
+```
+
+### Cost Forecasting
+
+```typescript
+model CostForecast {
+  platform          String
+  serviceType       ServiceType
+  forecastPeriod    ForecastPeriod    // WEEKLY, MONTHLY, QUARTERLY
+  currentCost       Float
+  forecastedCost    Float
+  confidence        Float             // 0-100
+  basedOnDays       Int               // Historical data used
+  trendDirection    TrendDirection    // INCREASING, DECREASING, STABLE
+}
+```
+
+## Database Schema
+
+### Budget Model
+
+```prisma
+model Budget {
+  id                String
+  name              String
+  description       String?
+  budgetType        BudgetType
+  totalAmount       Float
+  spentAmount       Float            @default(0)
+  remainingAmount   Float            @default(0)
+  startDate         DateTime
+  endDate           DateTime
+  status            BudgetStatus     @default(ACTIVE)
+  alertThreshold80  Boolean          @default(true)
+  alertThreshold90  Boolean          @default(true)
+  alertThreshold100 Boolean          @default(true)
+  autoRenewal       Boolean          @default(false)
+  
+  budgetAllocations BudgetAllocation[]
+  budgetAlerts      BudgetAlert[]
+  costAllocations   CostAllocation[]
+}
+```
+
+**Location:** `prisma/schema.prisma:538-566`
+
+### BudgetAllocation Model
+
+```prisma
+model BudgetAllocation {
+  id              String
+  budgetId        String
+  platform        String           // API, Apify, AWS, etc.
+  serviceType     ServiceType
+  allocatedAmount Float
+  spentAmount     Float            @default(0)
+  remainingAmount Float            @default(0)
+  priority        AllocationPriority @default(MEDIUM)
+  isActive        Boolean          @default(true)
+  
+  budget          Budget           @relation(fields: [budgetId], references: [id])
+}
+```
+
+**Location:** `prisma/schema.prisma:568-588`
+
+### CostAllocation Model
+
+```prisma
+model CostAllocation {
+  id              String
+  budgetId        String
+  platform        String
+  serviceType     ServiceType
+  costAmount      Float
+  description     String?
+  costDate        DateTime
+  apiUsageId      String?        // Link to ApiUsage
+  apifyRunId      String?        // Link to ApifyRunMetrics
+  metadata        Json?
+  
+  budget          Budget         @relation(fields: [budgetId], references: [id])
+}
+```
+
+**Location:** `prisma/schema.prisma:590-612`
+
+## Best Practices
+
+### 1. Budget Hierarchy
+
+Create a hierarchy of budgets:
+
+```typescript
+// Top-level annual budget
+const annualBudget = await budgetManager.createBudget({
+  name: '2026 Annual Budget',
+  budgetType: BudgetType.YEARLY,
+  totalAmount: 60000.00,
+  startDate: new Date('2026-01-01'),
+  endDate: new Date('2026-12-31')
+});
+
+// Quarterly sub-budgets
+for (let quarter = 1; quarter <= 4; quarter++) {
+  await budgetManager.createBudget({
+    name: `Q${quarter} 2026 Budget`,
+    budgetType: BudgetType.QUARTERLY,
+    totalAmount: 15000.00,
+    startDate: getQuarterStart(quarter),
+    endDate: getQuarterEnd(quarter)
+  });
+}
+```
+
+### 2. Regular Monitoring
+
+Set up automated monitoring:
+
+```typescript
+// Check budget status daily
+setInterval(async () => {
+  const budgets = await budgetManager.listBudgets({ status: 'ACTIVE' });
+  
+  for (const budget of budgets) {
+    const summary = await budgetManager.getBudget(budget.id);
+    
+    if (summary.spentPercentage > 80) {
+      console.warn(`Budget ${budget.name} at ${summary.spentPercentage.toFixed(1)}%`);
+    }
+  }
+}, 24 * 60 * 60 * 1000);  // Daily
+```
+
+### 3. Allocation Strategy
+
+Allocate based on priority:
+
+```typescript
+const allocations = [
+  {
+    platform: 'OpenAI',
+    serviceType: ServiceType.API,
+    allocatedAmount: 3000.00,
+    priority: 'CRITICAL'  // Core functionality
+  },
+  {
+    platform: 'Apify',
+    serviceType: ServiceType.SCRAPING,
+    allocatedAmount: 2000.00,
+    priority: 'HIGH'  // Important data collection
+  },
+  {
+    platform: 'Analytics',
+    serviceType: ServiceType.PROCESSING,
+    allocatedAmount: 500.00,
+    priority: 'MEDIUM'  // Can reduce if needed
+  }
+];
+```
+
+<Accordion title="FAQ: Budget Management">
+
+**Q: What happens when a budget is exceeded?**
+
+A: The budget status changes to "EXCEEDED" and alerts are triggered. Cost allocations still work but generate warnings. You can pause operations by checking budget status before expensive operations.
+
+**Q: Can I have overlapping budgets?**
+
+A: Yes, you can have multiple active budgets for different purposes (e.g., project-specific budget + monthly operational budget). Each cost allocation is linked to one specific budget.
+
+**Q: How accurate are cost forecasts?**
+
+A: Forecast accuracy depends on historical data volume. With 30+ days of data, forecasts typically have 80-90% confidence. New platforms or seasonal variations may reduce accuracy.
+
+**Q: Can I auto-pause services when budget is exhausted?**
+
+A: Yes, implement budget checks before expensive operations:
+
+```typescript
+const summary = await budgetManager.getBudget(budgetId);
+if (summary.spentPercentage >= 95) {
+  throw new Error('Budget nearly exhausted, operation paused');
+}
+```
+
+**Q: How do I track costs for multiple projects?**
+
+A: Create separate project budgets and include project metadata in cost allocations:
+
+```typescript
+await budgetManager.allocateCost({
+  budgetId: projectBudgetId,
+  platform: 'OpenAI',
+  serviceType: ServiceType.API,
+  costAmount: 25.00,
+  metadata: { projectId: 'proj-123', clientId: 'client-456' }
+});
+```
+
+**Q: Can I get real-time spending notifications?**
+
+A: Yes, set up webhooks or notification handlers when alerts are created. The system automatically creates alerts at configured thresholds.
+
+</Accordion>
+
+## Next Steps
+
+- Configure [API Monitoring](/advanced/api-monitoring) to track usage in real-time
+- Use the [Discovery Pipeline](/advanced/discovery-pipeline) cost-effectively
+- Access budget reports via [CLI Tools](/advanced/cli-tools)

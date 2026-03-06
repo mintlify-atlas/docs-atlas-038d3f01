@@ -1,0 +1,210 @@
+---
+title: 'Creator Discovery'
+description: 'Automatically discover trending TikTok creators using the discovery pipeline'
+icon: 'compass'
+---
+
+The Creator Discovery feature automatically finds and evaluates TikTok creators based on trending topics, keywords, and engagement metrics. The system uses a sophisticated pipeline to discover, evaluate, and add high-quality creators to your database.
+
+## How It Works
+
+The discovery pipeline consists of several stages that work together to find and evaluate creators:
+
+<Steps>
+  <Step title="Trending Topic Discovery">
+    The system monitors TikTok for trending topics, hashtags, and challenges across different categories like dance, comedy, DIY, cooking, and education.
+
+    ```typescript
+    // From lib/discovery/trending-discovery.ts
+    const trendingChallenges = [
+      { topic: 'dance', tags: ['#dancechallenge', '#tiktokdance'], baseVolume: 250000000 },
+      { topic: 'comedy', tags: ['#comedy', '#funny', '#memes'], baseVolume: 300000000 },
+      { topic: 'diy', tags: ['#diy', '#howto', '#tutorial'], baseVolume: 120000000 },
+      { topic: 'pets', tags: ['#pets', '#dogs', '#cats'], baseVolume: 180000000 },
+    ]
+    ```
+  </Step>
+
+  <Step title="Creator Search">
+    For each trending topic, the system searches for creators using TikTok's Apify scraper to find profiles with relevant content.
+
+    ```typescript
+    // Search creators by trending topic
+    const creators = await trendingDiscovery.searchCreatorsByTopic(
+      trendingTopic,
+      50 // limit
+    )
+    ```
+  </Step>
+
+  <Step title="Duplicate Detection">
+    Before evaluation, the system checks if creators already exist in your database to avoid duplicates.
+
+    ```typescript
+    const duplicateCheck = await duplicateDetector.checkDuplicate(creator)
+    if (!duplicateCheck.isDuplicate) {
+      // Queue for evaluation
+    }
+    ```
+  </Step>
+
+  <Step title="Creator Evaluation">
+    Each creator is evaluated based on quality metrics including follower count, engagement rate, content quality, and authenticity.
+
+    ```typescript
+    const evaluation = await evaluator.evaluateCreator(creatorData)
+    // Returns: { recommendation: 'add' | 'monitor' | 'reject', qualityScore: number }
+    ```
+  </Step>
+
+  <Step title="Add to Database">
+    Approved creators are automatically added to your database with their profile data and metrics.
+
+    ```typescript
+    const newCreator = await db.creatorProfile.create({
+      data: {
+        platform: 'tiktok',
+        username: data.identifier,
+        followerCount: evaluation.metrics.followerCount,
+        engagementRate: evaluation.metrics.engagementRate,
+      },
+    })
+    ```
+  </Step>
+</Steps>
+
+## Discovery Sources
+
+The system discovers creators from multiple sources:
+
+<CardGroup cols={2}>
+  <Card title="Trending Topics" icon="fire">
+    Monitors trending hashtags, challenges, and topics across TikTok to find creators participating in viral content.
+  </Card>
+  
+  <Card title="Category Exploration" icon="grid">
+    Explores specific content categories like fitness, fashion, food, travel, and technology to find niche creators.
+  </Card>
+  
+  <Card title="Keyword Search" icon="search">
+    Searches for creators using custom keywords and hashtags relevant to your brand or campaign.
+  </Card>
+  
+  <Card title="Related Creators" icon="users">
+    Discovers creators similar to existing high-performing profiles in your database.
+  </Card>
+</CardGroup>
+
+## Pipeline Architecture
+
+The discovery pipeline uses a queue-based architecture for scalability:
+
+```typescript
+// From lib/discovery/discovery-pipeline.ts
+export class DiscoveryPipeline {
+  private queueConfig: QueueConfig
+  private scheduler: DiscoveryScheduler
+  private trendingDiscovery: TrendingDiscovery
+  private evaluator: CreatorEvaluator
+  private duplicateDetector: DuplicateDetector
+  
+  async start(): Promise<void> {
+    // Initialize scheduler
+    await this.scheduler.initialize()
+    this.scheduler.start()
+    this.isRunning = true
+  }
+}
+```
+
+### Queue System
+
+The pipeline uses three specialized queues:
+
+- **Discovery Queue**: Handles trending topic searches and category exploration
+- **Evaluation Queue**: Processes creator quality evaluation with 10 concurrent workers
+- **Aggregation Queue**: Enriches creator data with detailed metrics and analytics
+
+## Starting a Discovery Job
+
+You can manually trigger discovery jobs through the API:
+
+```typescript
+// Queue a trending discovery job
+await queueConfig.addJob(
+  'creator-discovery',
+  JobType.DISCOVER_TRENDING,
+  {
+    platform: 'tiktok',
+    topic: 'cooking',
+    mode: 'automated'
+  },
+  JobPriority.HIGH
+)
+```
+
+## Evaluation Criteria
+
+Creators are evaluated based on multiple factors:
+
+<Accordion title="Quality Score Components">
+  - **Follower Count**: Minimum threshold ensures reach potential
+  - **Engagement Rate**: Measures audience interaction quality
+  - **Content Consistency**: Evaluates posting frequency and regularity
+  - **Audience Authenticity**: Detects fake followers and engagement
+  - **Content Quality**: Analyzes video production value and creativity
+  - **Brand Safety**: Checks for controversial or inappropriate content
+</Accordion>
+
+## Monitoring Discovery Status
+
+Track the status of your discovery pipeline:
+
+```typescript
+const status = await discoveryPipeline.getStatus()
+// Returns:
+// {
+//   isRunning: true,
+//   queues: [
+//     { name: 'creator-discovery', metrics: { waiting: 5, active: 2 } },
+//     { name: 'creator-evaluation', metrics: { waiting: 12, active: 10 } }
+//   ]
+// }
+```
+
+## Discovery Reports
+
+Generate reports to analyze discovery performance:
+
+```typescript
+const report = await discoveryPipeline.generateReport(
+  startDate,
+  endDate
+)
+
+console.log(`Discovered ${report.stats.creatorsDiscovered} creators`)
+console.log(`Added ${report.stats.creatorsAdded} to database`)
+console.log(`Average quality score: ${report.stats.averageQualityScore}`)
+```
+
+## Best Practices
+
+<Warning>
+  The discovery pipeline can generate a large number of API requests to TikTok. Monitor your Apify usage and set appropriate rate limits to avoid hitting quota limits.
+</Warning>
+
+<Tip>
+  Start with targeted category exploration before enabling full trending topic discovery. This helps you understand the quality of discovered creators before scaling up.
+</Tip>
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Keyword Search" icon="search" href="/features/keyword-search">
+    Manually search for specific creators using keywords
+  </Card>
+  
+  <Card title="Analytics Dashboard" icon="chart-bar" href="/features/analytics-dashboard">
+    View discovered creator metrics and performance
+  </Card>
+</CardGroup>

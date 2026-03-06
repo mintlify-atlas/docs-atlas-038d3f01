@@ -1,0 +1,447 @@
+---
+title: 'Get Creator Profile'
+description: 'Fetch detailed creator profiles with cross-platform metrics'
+---
+
+# Get Creator Profile
+
+Retrieve comprehensive profile information for a specific creator, including metrics from all connected platforms.
+
+## Endpoint
+
+```
+GET /api/creators/{creatorId}
+```
+
+## Request
+
+### Path Parameters
+
+<ParamField path="creatorId" type="string" required>
+  Unique identifier for the creator
+</ParamField>
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="include" type="string">
+  Comma-separated list of relations to include: `youtube`, `twitter`, `instagram`, `tiktok`, `linkedin`, `history`, `analytics`
+</ParamField>
+
+<ParamField query="includeHistorical" type="boolean" default="false">
+  Include historical metrics data
+</ParamField>
+
+<ParamField query="historicalDays" type="number" default="30">
+  Number of days of historical data to include (when `includeHistorical=true`)
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  <Expandable title="Creator Profile">
+    <ResponseField name="id" type="string">
+      Unique creator identifier
+    </ResponseField>
+    
+    <ResponseField name="name" type="string">
+      Creator's display name
+    </ResponseField>
+    
+    <ResponseField name="email" type="string">
+      Creator's email (if available)
+    </ResponseField>
+    
+    <ResponseField name="bio" type="string">
+      Creator's biography
+    </ResponseField>
+    
+    <ResponseField name="profileImageUrl" type="string">
+      URL to profile image
+    </ResponseField>
+    
+    <ResponseField name="category" type="string">
+      Creator category
+    </ResponseField>
+    
+    <ResponseField name="tags" type="string[]">
+      Array of tags
+    </ResponseField>
+    
+    <ResponseField name="isVerified" type="boolean">
+      Overall verification status
+    </ResponseField>
+    
+    <ResponseField name="platformIdentifiers" type="object">
+      Platform-specific usernames and IDs
+    </ResponseField>
+    
+    <ResponseField name="metrics" type="object">
+      <Expandable title="Aggregate Metrics">
+        <ResponseField name="totalReach" type="number">
+          Total followers across all platforms
+        </ResponseField>
+        
+        <ResponseField name="compositeEngagementScore" type="number">
+          Weighted engagement score (0-100)
+        </ResponseField>
+        
+        <ResponseField name="averageEngagementRate" type="number">
+          Average engagement rate percentage
+        </ResponseField>
+        
+        <ResponseField name="contentFrequency" type="number">
+          Posts per week
+        </ResponseField>
+        
+        <ResponseField name="audienceQualityScore" type="number">
+          Audience quality score (0-100)
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="platforms" type="object">
+      Platform-specific data (when requested via `include` parameter)
+      
+      <Expandable title="Platform Data">
+        <ResponseField name="youtube" type="object">
+          YouTube metrics (if connected)
+        </ResponseField>
+        
+        <ResponseField name="twitter" type="object">
+          Twitter metrics (if connected)
+        </ResponseField>
+        
+        <ResponseField name="instagram" type="object">
+          Instagram metrics (if connected)
+        </ResponseField>
+        
+        <ResponseField name="tiktok" type="object">
+          TikTok metrics (if connected)
+        </ResponseField>
+        
+        <ResponseField name="linkedin" type="object">
+          LinkedIn metrics (if connected)
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="syncStatus" type="string">
+      Current sync status: `PENDING`, `SYNCING`, `COMPLETED`, `FAILED`, `RATE_LIMITED`
+    </ResponseField>
+    
+    <ResponseField name="lastSync" type="string">
+      ISO 8601 timestamp of last sync
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 timestamp of profile creation
+    </ResponseField>
+    
+    <ResponseField name="updatedAt" type="string">
+      ISO 8601 timestamp of last update
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+### Basic Profile Fetch
+
+<Tabs>
+  <Tab title="TypeScript">
+    ```typescript
+    const creatorId = 'creator_123';
+    
+    const response = await fetch(
+      `https://your-domain.com/api/creators/${creatorId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`
+        }
+      }
+    );
+
+    const { data } = await response.json();
+    
+    console.log(`${data.name} has ${data.metrics.totalReach.toLocaleString()} total followers`);
+    console.log(`Engagement score: ${data.metrics.compositeEngagementScore}`);
+    ```
+  </Tab>
+  
+  <Tab title="JavaScript">
+    ```javascript
+    async function getCreatorProfile(creatorId) {
+      const response = await fetch(
+        `https://your-domain.com/api/creators/${creatorId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${process.env.API_KEY}`
+          }
+        }
+      );
+
+      const { data } = await response.json();
+      return data;
+    }
+
+    const creator = await getCreatorProfile('creator_123');
+    console.log(creator);
+    ```
+  </Tab>
+  
+  <Tab title="cURL">
+    ```bash
+    curl https://your-domain.com/api/creators/creator_123 \
+      -H "Authorization: Bearer YOUR_API_KEY"
+    ```
+  </Tab>
+</Tabs>
+
+### Include Platform Metrics
+
+```typescript
+const response = await fetch(
+  `https://your-domain.com/api/creators/${creatorId}?include=tiktok,instagram,youtube`,
+  {
+    headers: {
+      'Authorization': `Bearer ${apiKey}`
+    }
+  }
+);
+
+const { data } = await response.json();
+
+// Access platform-specific metrics
+if (data.platforms.tiktok) {
+  console.log('TikTok Stats:');
+  console.log(`  Followers: ${data.platforms.tiktok.followerCount}`);
+  console.log(`  Videos: ${data.platforms.tiktok.videoCount}`);
+  console.log(`  Avg Views: ${data.platforms.tiktok.averageViews}`);
+  console.log(`  Engagement Rate: ${data.platforms.tiktok.engagementRate}%`);
+}
+```
+
+### Fetch Historical Data
+
+```typescript
+const response = await fetch(
+  `https://your-domain.com/api/creators/${creatorId}?includeHistorical=true&historicalDays=90`,
+  {
+    headers: {
+      'Authorization': `Bearer ${apiKey}`
+    }
+  }
+);
+
+const { data } = await response.json();
+
+// Analyze growth trends
+if (data.historical) {
+  const growth = data.historical.metrics.map((m, i, arr) => {
+    if (i === 0) return null;
+    const prev = arr[i - 1];
+    return {
+      date: m.timestamp,
+      followerGrowth: m.followerCount - prev.followerCount,
+      engagementChange: m.engagementRate - prev.engagementRate
+    };
+  }).filter(Boolean);
+  
+  console.log('90-day growth trend:', growth);
+}
+```
+
+## Response Example
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "creator_123",
+    "name": "Tech Guru",
+    "email": "contact@techguru.com",
+    "bio": "Technology enthusiast, educator, and content creator. Making tech accessible to everyone.",
+    "profileImageUrl": "https://cdn.example.com/avatars/techguru.jpg",
+    "category": "tech",
+    "tags": ["programming", "ai", "web3", "tutorials"],
+    "isVerified": true,
+    "platformIdentifiers": {
+      "tiktok_username": "@techguru",
+      "youtube_channel_id": "UC123456789",
+      "instagram_username": "techguru",
+      "twitter_handle": "@techguru"
+    },
+    "metrics": {
+      "totalReach": 450000,
+      "compositeEngagementScore": 87.5,
+      "averageEngagementRate": 5.2,
+      "contentFrequency": 5.5,
+      "audienceQualityScore": 92
+    },
+    "platforms": {
+      "tiktok": {
+        "userId": "7234567890",
+        "username": "techguru",
+        "nickname": "Tech Guru",
+        "followerCount": 250000,
+        "followingCount": 342,
+        "videoCount": 456,
+        "heartCount": "8900000",
+        "averageViews": 45000,
+        "averageLikes": 2800,
+        "averageComments": 156,
+        "averageShares": 89,
+        "engagementRate": 6.1,
+        "totalViews": "20500000",
+        "dailyViewGrowth": 1250,
+        "dailyFollowerGrowth": 450,
+        "isVerified": true,
+        "bio": "Tech tutorials & reviews",
+        "profileUrl": "https://www.tiktok.com/@techguru",
+        "lastSync": "2026-03-06T10:30:00Z"
+      },
+      "youtube": {
+        "channelId": "UC123456789",
+        "channelName": "Tech Guru",
+        "channelUrl": "https://youtube.com/@techguru",
+        "subscriberCount": 150000,
+        "videoCount": 234,
+        "viewCount": "15000000",
+        "averageViews": 64000,
+        "averageLikes": 3200,
+        "averageComments": 287,
+        "engagementRate": 4.8,
+        "country": "US",
+        "publishedAt": "2020-05-15T00:00:00Z",
+        "lastSync": "2026-03-06T10:30:00Z"
+      },
+      "instagram": {
+        "accountId": "17841405793",
+        "username": "techguru",
+        "fullName": "Tech Guru",
+        "followerCount": 50000,
+        "followingCount": 456,
+        "mediaCount": 342,
+        "averageLikes": 2100,
+        "averageComments": 98,
+        "engagementRate": 4.4,
+        "isVerified": true,
+        "isBusinessAccount": true,
+        "businessCategory": "Education",
+        "bio": "Tech content creator",
+        "website": "https://techguru.com",
+        "profileUrl": "https://instagram.com/techguru",
+        "lastSync": "2026-03-06T10:30:00Z"
+      }
+    },
+    "syncStatus": "COMPLETED",
+    "lastSync": "2026-03-06T10:30:00Z",
+    "createdAt": "2025-06-10T08:00:00Z",
+    "updatedAt": "2026-03-06T10:30:00Z"
+  }
+}
+```
+
+## Platform-Specific Data Structures
+
+### TikTok Metrics
+
+Defined in `/lib/apify/types.ts:140-165`:
+
+```typescript
+interface TiktokData {
+  userId: string;
+  username: string;
+  nickname?: string | null;
+  profileUrl: string;
+  bio?: string | null;
+  isVerified: boolean;
+  followerCount: number;
+  followingCount: number;
+  videoCount: number;
+  heartCount: bigint | number;
+  averageViews?: number;
+  averageLikes?: number;
+  averageComments?: number;
+  averageShares?: number;
+  engagementRate?: number;
+  totalViews?: bigint | number;
+  dailyViewGrowth?: number | null;
+  dailyFollowerGrowth?: number | null;
+}
+```
+
+### Instagram Metrics
+
+Defined in `/lib/apify/types.ts:112-138`:
+
+```typescript
+interface InstagramData {
+  accountId: string;
+  username: string;
+  fullName?: string | null;
+  profileUrl: string;
+  bio?: string | null;
+  website?: string | null;
+  isVerified: boolean;
+  isBusinessAccount?: boolean;
+  businessCategory?: string | null;
+  followerCount: number;
+  followingCount: number;
+  mediaCount: number;
+  averageLikes?: number;
+  averageComments?: number;
+  engagementRate?: number;
+  reach?: number | null;
+  impressions?: number | null;
+  profileViews?: number | null;
+  websiteClicks?: number | null;
+}
+```
+
+## Error Responses
+
+### Creator Not Found
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Creator with ID 'creator_123' not found"
+  }
+}
+```
+
+### Invalid Include Parameter
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid include value. Must be one of: youtube, twitter, instagram, tiktok, linkedin, history, analytics"
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Track Metrics" icon="chart-line" href="/api/creators/metrics">
+    Get historical engagement metrics
+  </Card>
+  <Card title="Search Creators" icon="search" href="/api/creators/search">
+    Search for more creators
+  </Card>
+</CardGroup>

@@ -1,0 +1,421 @@
+---
+title: Creator Commands
+description: Manage and analyze creator profiles across social media platforms
+---
+
+## Overview
+
+The `creators` command group provides tools for managing creator profiles, analyzing performance metrics, and syncing data across multiple social media platforms including YouTube, Instagram, TikTok, and Twitter.
+
+## Commands
+
+### Search Creators
+
+Search for creators based on various criteria:
+
+```bash
+tiktok-miner creators search [options]
+```
+
+#### Options
+
+- `--platform <platform>` - Filter by platform (youtube, instagram, tiktok, twitter)
+- `--category <category>` - Filter by content category
+- `--min-followers <number>` - Minimum follower count
+- `--max-followers <number>` - Maximum follower count
+- `--min-engagement <rate>` - Minimum engagement rate (percentage)
+- `--verified` - Only show verified creators
+- `--limit <number>` - Limit number of results (default: 50)
+- `--sort <field>` - Sort by field (followers, engagement, reach)
+- `--order <asc|desc>` - Sort order (default: desc)
+
+#### Examples
+
+**Find tech creators with high engagement:**
+
+```bash
+tiktok-miner creators search --category tech --min-engagement 5 --limit 20
+```
+
+**Search verified Instagram creators:**
+
+```bash
+tiktok-miner creators search --platform instagram --verified --min-followers 50000
+```
+
+**Top creators by total reach:**
+
+```bash
+tiktok-miner creators search --sort reach --order desc --limit 10
+```
+
+#### Example Output
+
+```
+┌─────────────────────┬───────────┬──────────────┬──────────────────┬────────────┐
+│ Name                │ Platform  │ Followers    │ Engagement Rate  │ Category   │
+├─────────────────────┼───────────┼──────────────┼──────────────────┼────────────┤
+│ TechGuru            │ youtube   │ 1,250,000    │ 8.5%            │ tech       │
+│ CodeWithJane        │ instagram │ 875,000      │ 12.3%           │ tech       │
+│ DevDaily            │ twitter   │ 450,000      │ 6.7%            │ tech       │
+└─────────────────────┴───────────┴──────────────┴──────────────────┴────────────┘
+
+Found 3 creators matching criteria
+```
+
+### View Creator Details
+
+Get detailed information about a specific creator:
+
+```bash
+tiktok-miner creators view <identifier>
+```
+
+#### Arguments
+
+- `<identifier>` - Creator ID, username, or channel ID
+
+#### Options
+
+- `--platform <platform>` - Specify platform if using username
+- `--include-history` - Include historical metrics data
+- `--include-analytics` - Include engagement analytics
+
+#### Examples
+
+**View creator by ID:**
+
+```bash
+tiktok-miner creators view abc123-def456-ghi789
+```
+
+**View creator with full analytics:**
+
+```bash
+tiktok-miner creators view techguru --platform youtube --include-analytics
+```
+
+#### Example Output
+
+```
+Creator Profile: TechGuru
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Basic Information:
+  ID: abc123-def456-ghi789
+  Category: Tech
+  Verified: Yes
+  Last Synced: 2026-03-06 10:30:00
+
+Platform Presence:
+  ├─ YouTube: @TechGuru (1.25M subscribers)
+  ├─ Instagram: @techguru (875K followers)
+  └─ Twitter: @techguru (450K followers)
+
+Metrics:
+  Total Reach: 2,575,000
+  Avg Engagement Rate: 9.2%
+  Content Frequency: 5.3 posts/week
+  Audience Quality Score: 87/100
+  Composite Score: 92.5
+
+YouTube Metrics:
+  Subscribers: 1,250,000
+  Total Views: 45,000,000
+  Avg Views/Video: 125,000
+  Avg Likes: 8,500
+  Engagement Rate: 8.5%
+  Upload Frequency: 3 videos/week
+```
+
+### Export Creator Data
+
+Export creator data to various formats:
+
+```bash
+tiktok-miner creators export [options]
+```
+
+#### Options
+
+- `--format <json|csv|xlsx>` - Export format (default: json)
+- `--output <path>` - Output file path
+- `--filter <criteria>` - Filter criteria (JSON string)
+- `--fields <fields>` - Comma-separated field list
+- `--include-metrics` - Include platform-specific metrics
+
+#### Examples
+
+**Export all creators to CSV:**
+
+```bash
+tiktok-miner creators export --format csv --output creators.csv
+```
+
+**Export filtered data with specific fields:**
+
+```bash
+tiktok-miner creators export \
+  --format json \
+  --filter '{"category":"tech","minFollowers":100000}' \
+  --fields "name,platform,followers,engagement" \
+  --output tech-creators.json
+```
+
+**Export with full metrics:**
+
+```bash
+tiktok-miner creators export --format xlsx --include-metrics --output full-export.xlsx
+```
+
+### Sync Creator Data
+
+Update creator profiles with latest platform data:
+
+```bash
+tiktok-miner creators sync [identifier]
+```
+
+#### Arguments
+
+- `[identifier]` - Optional creator ID or username. If omitted, syncs all creators
+
+#### Options
+
+- `--platform <platform>` - Sync specific platform only
+- `--force` - Force sync even if recently updated
+- `--async` - Run sync in background
+- `--batch-size <number>` - Number of creators to sync in parallel (default: 5)
+
+#### Examples
+
+**Sync a specific creator:**
+
+```bash
+tiktok-miner creators sync techguru --platform youtube
+```
+
+**Sync all creators (async):**
+
+```bash
+tiktok-miner creators sync --async --batch-size 10
+```
+
+**Force sync all YouTube data:**
+
+```bash
+tiktok-miner creators sync --platform youtube --force
+```
+
+#### Example Output
+
+```
+Syncing creator data...
+
+[1/10] TechGuru (youtube) ✓ Updated
+[2/10] CodeWithJane (instagram) ✓ Updated  
+[3/10] DevDaily (twitter) ⚠ Rate limited, retrying...
+[4/10] FitnessQueen (tiktok) ✓ Updated
+[5/10] FoodieAdventures (youtube) ✓ Updated
+...
+
+Sync Complete:
+  ✓ Successful: 9
+  ⚠ Retried: 1
+  ✗ Failed: 0
+  Duration: 2m 15s
+```
+
+### Update Creator Profile
+
+Manually update creator profile information:
+
+```bash
+tiktok-miner creators update <identifier> [options]
+```
+
+#### Arguments
+
+- `<identifier>` - Creator ID or username
+
+#### Options
+
+- `--name <name>` - Update display name
+- `--email <email>` - Update contact email
+- `--category <category>` - Update category
+- `--tags <tags>` - Comma-separated tags
+- `--verified <true|false>` - Update verification status
+- `--bio <text>` - Update bio/description
+
+#### Examples
+
+**Update category and tags:**
+
+```bash
+tiktok-miner creators update techguru \
+  --category "technology" \
+  --tags "coding,programming,tutorials"
+```
+
+**Update contact information:**
+
+```bash
+tiktok-miner creators update abc123 \
+  --email "contact@techguru.com" \
+  --bio "Software engineer and educator"
+```
+
+### Add Creator
+
+Manually add a new creator to the database:
+
+```bash
+tiktok-miner creators add <username> --platform <platform> [options]
+```
+
+#### Arguments
+
+- `<username>` - Platform username or channel ID
+
+#### Options
+
+- `--platform <platform>` - Platform (required: youtube, instagram, tiktok, twitter)
+- `--name <name>` - Display name
+- `--category <category>` - Content category
+- `--skip-evaluation` - Skip quality evaluation
+- `--auto-sync` - Automatically sync metrics after adding
+
+#### Examples
+
+**Add a YouTube creator:**
+
+```bash
+tiktok-miner creators add techguru --platform youtube --category tech --auto-sync
+```
+
+**Add without evaluation:**
+
+```bash
+tiktok-miner creators add newcreator --platform instagram --skip-evaluation
+```
+
+### Delete Creator
+
+Remove a creator from the database:
+
+```bash
+tiktok-miner creators delete <identifier>
+```
+
+#### Arguments
+
+- `<identifier>` - Creator ID or username
+
+#### Options
+
+- `--force` - Skip confirmation prompt
+- `--keep-metrics` - Archive metrics before deletion
+
+#### Examples
+
+```bash
+tiktok-miner creators delete oldcreator --force
+```
+
+## Data Models
+
+### Creator Profile Structure
+
+Creators are stored with the following structure:
+
+```typescript
+{
+  id: string;
+  name: string;
+  email?: string;
+  bio?: string;
+  category?: string;
+  tags: string[];
+  isVerified: boolean;
+  platformIdentifiers: {
+    youtube_channel_id?: string;
+    twitter_handle?: string;
+    instagram_username?: string;
+    tiktok_username?: string;
+  };
+  compositeEngagementScore?: number;
+  totalReach: number;
+  averageEngagementRate?: number;
+  contentFrequency?: number;
+  audienceQualityScore?: number;
+  lastSync: Date;
+  syncStatus: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+}
+```
+
+## Best Practices
+
+### Regular Syncing
+
+Schedule regular syncs to keep creator data fresh:
+
+```bash
+# Sync all creators daily
+0 0 * * * cd /path/to/tiktok-miner && bun cli/index.ts creators sync --async
+```
+
+### Filtering Large Results
+
+When searching large datasets, use filters to narrow results:
+
+```bash
+# Bad: Get all creators then filter manually
+tiktok-miner creators search --limit 10000
+
+# Good: Use built-in filters
+tiktok-miner creators search --category tech --min-followers 50000 --limit 50
+```
+
+### Batch Operations
+
+Use batch operations for better performance:
+
+```bash
+# Sync multiple creators efficiently
+tiktok-miner creators sync --batch-size 10 --async
+```
+
+## Common Use Cases
+
+### Find Rising Stars
+
+Discover creators with high engagement but moderate follower counts:
+
+```bash
+tiktok-miner creators search \
+  --min-engagement 8 \
+  --min-followers 10000 \
+  --max-followers 100000 \
+  --sort engagement \
+  --limit 20
+```
+
+### Platform Comparison
+
+Compare a creator's performance across platforms:
+
+```bash
+tiktok-miner creators view techguru --include-analytics
+```
+
+### Export for Analysis
+
+Export data for external analysis tools:
+
+```bash
+tiktok-miner creators export \
+  --format csv \
+  --include-metrics \
+  --fields "name,platform,followers,engagement,contentFrequency" \
+  --output analysis.csv
+```

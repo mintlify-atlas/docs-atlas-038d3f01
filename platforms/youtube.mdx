@@ -1,0 +1,499 @@
+---
+title: "YouTube Integration"
+description: "Collect YouTube channel data, video metrics, and subscriber analytics using Apify actors"
+---
+
+## Overview
+
+TikTok Miner's YouTube integration uses Apify's YouTube scraper to collect channel information, video statistics, and engagement metrics. This integration provides access to YouTube data without requiring official API quota management.
+
+## How It Works
+
+The YouTube integration operates through the `ActorManager` class:
+
+1. **Channel Scraping**: Collects channel information, subscriber counts, and video details
+2. **Video Analysis**: Retrieves video metrics including views, likes, and comments
+3. **Search & Discovery**: Finds channels and videos by keywords
+4. **Data Transformation**: Converts raw YouTube data into unified format
+
+### Architecture
+
+```
+ActorManager.scrapeYouTubeChannel() → ApifyClient → Apify API
+        ↓
+YoutubeTransformer → UnifiedCreatorData → YoutubeMetrics (Database)
+```
+
+**Key Files:**
+- **Actor Manager**: `lib/apify/actor-manager.ts`
+- **Transformers**: `lib/apify/transformers.ts`
+- **Configuration**: `lib/apify/config.ts`
+- **Database Schema**: `prisma/schema.prisma` (YoutubeMetrics model)
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# Apify Configuration
+APIFY_API_KEY=your_apify_api_key_here
+APIFY_BASE_URL=https://api.apify.com
+APIFY_DEFAULT_TIMEOUT_SECS=600  # YouTube scraping takes longer
+APIFY_MAX_RETRIES=3
+
+# YouTube Scrapers
+APIFY_YOUTUBE_SCRAPER_ID=streamers/youtube-channel-scraper
+APIFY_YOUTUBE_POST_SCRAPER_ID=streamers/youtube-scraper
+```
+
+### Service Setup
+
+```typescript
+import { ActorManager } from '@/lib/apify/actor-manager';
+
+const actorManager = new ActorManager({
+  apiKey: process.env.APIFY_API_KEY!,
+  baseUrl: process.env.APIFY_BASE_URL,
+  maxRetries: 3,
+  requestTimeoutMs: 120000,
+});
+```
+
+## Data Collection
+
+### Channel Metrics
+
+The `YoutubeMetrics` table stores:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `channelId` | String | YouTube channel ID (unique) |
+| `channelName` | String | Channel display name |
+| `channelUrl` | String | Channel URL |
+| `subscriberCount` | Int | Total subscribers |
+| `videoCount` | Int | Total videos published |
+| `viewCount` | BigInt | Total channel views |
+| `averageViews` | Int | Average views per video |
+| `averageLikes` | Int | Average likes per video |
+| `averageComments` | Int | Average comments per video |
+| `engagementRate` | Float | Calculated engagement rate (%) |
+| `country` | String | Channel country |
+| `customUrl` | String | Custom channel URL |
+| `publishedAt` | DateTime | Channel creation date |
+| `uploadsPlaylistId` | String | Uploads playlist ID |
+| `dailyViewGrowth` | Float | Daily view growth rate |
+| `dailySubGrowth` | Float | Daily subscriber growth rate |
+
+### Data Model
+
+```typescript
+interface YoutubeData {
+  channelId: string;
+  channelName: string;
+  channelUrl: string;
+  description?: string;
+  country?: string;
+  customUrl?: string;
+  publishedAt?: Date;
+  subscriberCount: number;
+  videoCount: number;
+  viewCount: bigint | number;
+  averageViews?: number;
+  averageLikes?: number;
+  averageComments?: number;
+  engagementRate?: number;
+  uploadsPlaylistId?: string;
+  thumbnailUrl?: string;
+  bannerUrl?: string;
+}
+```
+
+## Usage Examples
+
+<Tabs>
+  <Tab title="Scrape Channel">
+    ```typescript
+    import { ActorManager } from '@/lib/apify/actor-manager';
+
+    const actorManager = new ActorManager({
+      apiKey: process.env.APIFY_API_KEY!,
+    });
+
+    // Scrape a YouTube channel
+    const channelUrl = 'https://www.youtube.com/@mkbhd';
+    const result = await actorManager.scrapeYouTubeChannel(channelUrl, {
+      maxItems: 50,              // Number of videos to analyze
+      includeChannelInfo: true,
+      includeVideoDetails: true,
+    });
+
+    // Get dataset results
+    const data = await actorManager.getRunDataset(
+      result.datasetId,
+      { limit: 1 }
+    );
+
+    const channel = data[0];
+    console.log({
+      channelName: channel.channelName,
+      subscribers: channel.subscriberCount,
+      videos: channel.videoCount,
+      totalViews: channel.viewCount,
+    });
+    ```
+  </Tab>
+
+  <Tab title="Calculate Engagement">
+    ```typescript
+    import { YoutubeTransformer } from '@/lib/apify/transformers';
+
+    // Transform YouTube data
+    const transformer = new YoutubeTransformer();
+    const result = transformer.transform(apifyChannel);
+
+    if (result.validation.isValid && result.data) {
+      const youtube = result.data.platformData?.youtube;
+
+      console.log({
+        engagementRate: youtube?.engagementRate?.toFixed(2) + '%',
+        avgViews: youtube?.averageViews,
+        avgLikes: youtube?.averageLikes,
+        avgComments: youtube?.averageComments,
+      });
+
+      // Calculate view-to-subscriber ratio
+      const ratio = (youtube?.averageViews || 0) / (youtube?.subscriberCount || 1);
+      console.log('View ratio:', (ratio * 100).toFixed(2) + '%');
+    }
+    ```
+  </Tab>
+
+  <Tab title="Search Videos">
+    ```typescript
+    // Search for videos by keywords
+    const result = await actorManager.searchYouTubeVideos(
+      ['artificial intelligence', 'machine learning'],
+      {
+        maxResults: 100,
+        includeChannelData: true,
+        sortBy: 'relevance',      // or 'date', 'viewCount'
+        uploadDate: 'month',      // 'hour', 'today', 'week', 'month', 'year'
+        videoDuration: 'any',     // 'short', 'medium', 'long'
+      }
+    );
+
+    const videos = await actorManager.getRunDataset(result.datasetId);
+
+    // Analyze video performance
+    const topVideos = videos
+      .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+      .slice(0, 10);
+
+    topVideos.forEach(video => {
+      console.log({
+        title: video.title,
+        views: video.viewCount,
+        likes: video.likeCount,
+        channel: video.channelTitle,
+      });
+    });
+    ```
+  </Tab>
+
+  <Tab title="Store in Database">
+    ```typescript
+    import { prisma } from '@/lib/db';
+    import { processCreatorProfile } from '@/lib/apify';
+
+    // Transform and validate
+    const result = await processCreatorProfile('youtube', apifyChannel);
+
+    if (result.success) {
+      const { data } = result;
+      const youtube = data.platformData?.youtube;
+
+      // Create creator profile with YouTube metrics
+      const creator = await prisma.creatorProfile.create({
+        data: {
+          name: data.name,
+          bio: data.bio,
+          profileImageUrl: data.profileImageUrl,
+          isVerified: data.isVerified,
+          platformIdentifiers: data.platformIdentifiers,
+          totalReach: data.totalReach,
+          averageEngagementRate: youtube?.engagementRate,
+          youtubeMetrics: {
+            create: {
+              channelId: youtube!.channelId,
+              channelName: youtube!.channelName,
+              channelUrl: youtube!.channelUrl,
+              description: youtube?.description,
+              country: youtube?.country,
+              customUrl: youtube?.customUrl,
+              publishedAt: youtube?.publishedAt,
+              subscriberCount: youtube!.subscriberCount,
+              videoCount: youtube!.videoCount,
+              viewCount: youtube!.viewCount,
+              averageViews: youtube?.averageViews || 0,
+              averageLikes: youtube?.averageLikes || 0,
+              averageComments: youtube?.averageComments || 0,
+              engagementRate: youtube?.engagementRate || 0,
+              uploadsPlaylistId: youtube?.uploadsPlaylistId,
+            },
+          },
+        },
+      });
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Rate Limits & Quotas
+
+### Apify Limits
+
+- **Free Tier**: $5 in free credits monthly
+- **Personal Plan**: Starting at $49/month
+- **Default Timeout**: 600 seconds (10 minutes) - YouTube scraping is intensive
+- **Memory**: 1024 MB recommended for channel scraping
+- **Concurrent Runs**: Based on subscription tier
+
+### YouTube Scraper Configuration
+
+```typescript
+const channelInput = {
+  startUrls: [{ url: channelUrl }],
+  maxItems: 50,               // Limit videos to reduce cost
+  includeChannelInfo: true,
+  includeVideoDetails: true,
+};
+
+const runOptions = {
+  timeoutSecs: 600,           // YouTube needs more time
+  memoryMbytes: 1024,         // Higher memory for better performance
+};
+```
+
+### Cost Optimization
+
+<Tip>
+  **Reduce YouTube scraping costs** by:
+  - Limiting `maxItems` to necessary video count
+  - Using shorter timeouts for channels with few videos
+  - Caching channel data in your database
+  - Scraping only the uploads playlist instead of all videos
+  - Running batch operations during off-peak hours
+  - Monitoring usage with `ApifyRunMetrics`
+</Tip>
+
+```typescript
+// Track costs
+const metrics = await prisma.apifyRunMetrics.create({
+  data: {
+    actorId: 'streamers/youtube-channel-scraper',
+    platform: 'youtube',
+    status: 'SUCCEEDED',
+    startedAt: new Date(),
+    finishedAt: new Date(),
+    duration: 120000,  // milliseconds (2 minutes)
+    datasetItemCount: 50,  // videos + channel info
+    costUsd: 0.08,
+    memoryUsage: 1024,
+  },
+});
+```
+
+## Advanced Features
+
+### Scrape Video Comments
+
+```typescript
+const videoScraperInput = {
+  startUrls: [{ url: 'https://www.youtube.com/watch?v=VIDEO_ID' }],
+  includeComments: true,
+  maxCommentsPerVideo: 50,
+  includeSubtitles: false,  // Set true if you need transcripts
+  includeChannelData: true,
+};
+
+const result = await actorManager.searchYouTubeVideos([], videoScraperInput);
+```
+
+### Monitor Growth Over Time
+
+```typescript
+import { prisma } from '@/lib/db';
+
+// Store historical snapshots
+const snapshot = await prisma.creatorMetricsHistory.create({
+  data: {
+    creatorProfileId: creator.id,
+    platform: 'youtube',
+    timestamp: new Date(),
+    followerCount: youtube.subscriberCount,
+    engagementRate: youtube.engagementRate,
+    totalPosts: youtube.videoCount,
+    avgViews: youtube.averageViews,
+    avgLikes: youtube.averageLikes,
+    avgComments: youtube.averageComments,
+    platformMetrics: {
+      totalViews: youtube.viewCount.toString(),
+      dailyViewGrowth: youtube.dailyViewGrowth,
+      dailySubGrowth: youtube.dailySubGrowth,
+    },
+  },
+});
+```
+
+## Error Handling
+
+```typescript
+try {
+  const result = await actorManager.scrapeYouTubeChannel(channelUrl);
+  const data = await actorManager.getRunDataset(result.datasetId);
+  
+  if (!data || data.length === 0) {
+    console.log('Channel not found or unavailable');
+  }
+} catch (error) {
+  if (error.message.includes('Actor run failed')) {
+    console.error('YouTube scraper failed');
+  } else if (error.message.includes('timeout')) {
+    console.error('Scraping timed out - try reducing maxItems');
+  } else if (error.message.includes('Invalid channel URL')) {
+    console.error('Invalid YouTube channel URL format');
+  } else {
+    console.error('Unexpected error:', error);
+  }
+}
+```
+
+## Data Validation
+
+The `YoutubeTransformer` ensures data quality:
+
+```typescript
+import { YoutubeTransformer } from '@/lib/apify/transformers';
+
+const transformer = new YoutubeTransformer();
+const result = transformer.transform(apifyChannel);
+
+if (!result.validation.isValid) {
+  console.error('Validation errors:', result.validation.errors);
+  console.warn('Warnings:', result.validation.warnings);
+} else {
+  const unifiedData = result.data;
+  // Data is validated and safe to use
+}
+```
+
+**Validation includes:**
+- Channel ID format validation
+- URL normalization
+- Description HTML stripping
+- BigInt handling for view counts
+- Date parsing and validation
+- Numeric type coercion
+
+## Monitoring
+
+### Track Data Quality
+
+```typescript
+const quality = await prisma.apifyDataQualityMetrics.create({
+  data: {
+    platform: 'youtube',
+    totalItemsProcessed: 75,
+    validItemsCount: 73,
+    invalidItemsCount: 2,
+    validationErrors: [
+      { error: 'Missing channel ID', count: 1 },
+      { error: 'Invalid subscriber count', count: 1 },
+    ],
+  },
+});
+```
+
+### Set Up Alerts
+
+```typescript
+const alert = await prisma.apifyAlert.create({
+  data: {
+    platform: 'youtube',
+    severity: 'MEDIUM',
+    alertType: 'DATA_QUALITY',
+    message: 'YouTube data quality below 95%',
+    conditions: { threshold: 0.95, actual: 0.92 },
+  },
+});
+```
+
+## Best Practices
+
+<Warning>
+  **YouTube Scraping Guidelines:**
+  - Respect YouTube's Terms of Service
+  - Use Apify's proxy rotation (enabled by default)
+  - Don't scrape age-restricted or private videos
+  - Cache results to minimize redundant requests
+  - Monitor for changes in YouTube's page structure
+  - Add delays between bulk channel scrapes
+  - Be aware that subscriber counts may be approximated for privacy
+</Warning>
+
+## Limitations
+
+- **Private Videos**: Cannot scrape unlisted or private videos
+- **Age-Restricted Content**: Limited access without authentication
+- **Subscriber Counts**: Large channels show approximated counts (e.g., "1M")
+- **Live Streams**: Real-time data may not be accurate
+- **Shorts**: Limited metadata compared to regular videos
+- **Analytics Data**: Revenue and detailed analytics require YouTube API
+- **Historical Data**: Cannot access deleted videos or historical metrics
+
+## Troubleshooting
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| "Channel not found" | Verify URL format; channel may be terminated |
+| "Timeout exceeded" | Increase timeout or reduce `maxItems` |
+| "Invalid channel URL" | Use format: `https://www.youtube.com/@channelname` or `/channel/ID` |
+| "No videos found" | Channel may have no public videos |
+| "Memory limit exceeded" | Increase `memoryMbytes` to 1024 or higher |
+
+### Debug Mode
+
+```typescript
+import { logger } from '@/lib/logger';
+
+logger.setLevel('debug');
+
+const result = await actorManager.scrapeYouTubeChannel(channelUrl);
+logger.info('YouTube scraper completed', {
+  runId: result.runId,
+  datasetId: result.datasetId,
+  status: result.status,
+});
+```
+
+## Comparison: YouTube API vs Apify Scraper
+
+| Feature | YouTube API | Apify Scraper |
+|---------|------------|---------------|
+| **Setup** | Requires Google Cloud project & API key | Only Apify API key |
+| **Quota** | 10,000 units/day (strict) | Based on Apify credits |
+| **Cost** | Free tier limited, paid after quota | Pay per compute unit |
+| **Data Freshness** | Real-time | Near real-time (slight delay) |
+| **Rate Limits** | Very strict | Flexible with proxies |
+| **Private Data** | Requires OAuth | Not available |
+| **Ease of Use** | Complex quota management | Simple, no quotas |
+
+## Next Steps
+
+- [TikTok Integration](/platforms/tiktok)
+- [Instagram Data Collection](/platforms/instagram)
+- [Twitter Scraping](/platforms/twitter)
+- [Budget Management](/advanced/budget-management)
+- [Monitor Scraping Costs](/advanced/budget-management)

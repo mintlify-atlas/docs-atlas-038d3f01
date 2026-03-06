@@ -1,0 +1,497 @@
+---
+title: 'Data Export'
+description: 'Export creator data to CSV, JSON, and Excel formats'
+icon: 'download'
+---
+
+The Data Export feature allows you to export creator data from your database in multiple formats. Export selected creators or search results for analysis, reporting, or integration with other tools.
+
+## Export Formats
+
+TikTok Miner supports three export formats:
+
+<CardGroup cols={3}>
+  <Card title="CSV" icon="file-csv">
+    Comma-separated values format compatible with Excel, Google Sheets, and most data analysis tools
+  </Card>
+  
+  <Card title="JSON" icon="file-code">
+    JavaScript Object Notation format ideal for API integration and programmatic processing
+  </Card>
+  
+  <Card title="Excel" icon="file-excel">
+    Native Microsoft Excel format (.xlsx) with formatted cells and multiple sheets
+  </Card>
+</CardGroup>
+
+## Export Dialog
+
+Access the export dialog from the Creators dashboard:
+
+<Steps>
+  <Step title="Select Creators">
+    Use the checkboxes in the data table to select creators you want to export. You can select individual creators or use "Select All" to export all filtered results.
+    
+    ```typescript
+    // Selected creators are tracked in state
+    const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
+    ```
+  </Step>
+
+  <Step title="Open Export Dialog">
+    Click the "Export" button to open the export configuration dialog.
+    
+    ```typescript
+    <Button onClick={() => setShowExportDialog(true)}>
+      <Download className="h-4 w-4 mr-2" />
+      Export ({selectedRows.size})
+    </Button>
+    ```
+  </Step>
+
+  <Step title="Choose Format">
+    Select your preferred export format: CSV, JSON, or Excel.
+    
+    ```typescript
+    <RadioGroup value={format} onValueChange={(v) => setFormat(v)}>
+      <RadioGroupItem value="csv" />
+      <RadioGroupItem value="json" />
+      <RadioGroupItem value="excel" />
+    </RadioGroup>
+    ```
+  </Step>
+
+  <Step title="Select Fields">
+    Choose which data fields to include in the export. You can select all fields or customize the selection.
+  </Step>
+
+  <Step title="Export">
+    Click "Export" to generate and download the file.
+  </Step>
+</Steps>
+
+## Available Export Fields
+
+Customize which data fields are included in your export:
+
+```typescript
+// From lib/export/types.ts
+export const CREATOR_EXPORT_FIELDS: ExportField[] = [
+  { key: 'id', label: 'Creator ID', type: 'string' },
+  { key: 'username', label: 'Username', type: 'string' },
+  { key: 'name', label: 'Display Name', type: 'string' },
+  { key: 'platform', label: 'Platform', type: 'string' },
+  { key: 'followerCount', label: 'Followers', type: 'number' },
+  { key: 'engagementRate', label: 'Engagement Rate', type: 'number' },
+  { key: 'avgLikes', label: 'Avg Likes', type: 'number' },
+  { key: 'avgComments', label: 'Avg Comments', type: 'number' },
+  { key: 'postFrequency', label: 'Post Frequency', type: 'number' },
+  { key: 'niche', label: 'Niche/Category', type: 'string' },
+  { key: 'location', label: 'Location', type: 'string' },
+  { key: 'profileUrl', label: 'Profile URL', type: 'string' },
+  { key: 'lastSync', label: 'Last Updated', type: 'date' },
+  { key: 'createdAt', label: 'Date Added', type: 'date' },
+]
+```
+
+### Field Selection
+
+```typescript
+// Select/deselect fields
+const handleFieldToggle = (fieldKey: string) => {
+  setSelectedFields(prev =>
+    prev.includes(fieldKey)
+      ? prev.filter(k => k !== fieldKey)
+      : [...prev, fieldKey]
+  )
+}
+
+// Bulk actions
+const handleSelectAll = () => {
+  setSelectedFields(CREATOR_EXPORT_FIELDS.map(f => f.key))
+}
+
+const handleSelectNone = () => {
+  setSelectedFields([])
+}
+```
+
+## Export Service
+
+The export service handles all export operations:
+
+```typescript
+// From lib/export/export-service.ts
+export class ExportService {
+  async exportCreators(
+    creatorIds: string[],
+    options: ExportOptions,
+    userId?: string
+  ): Promise<ExportJob | ExportResult> {
+    const jobId = uuidv4()
+    
+    // For large exports, create a job and process asynchronously
+    if (creatorIds.length > 100) {
+      const job = this.createJob(jobId, userId || 'anonymous', options.format, creatorIds.length)
+      
+      // Process in background
+      this.processExportJob(jobId, creatorIds, options)
+      
+      return job
+    }
+    
+    // For small exports, process immediately
+    const creators = await this.fetchCreatorsWithMetrics(creatorIds, options)
+    const handler = this.handlers.get(options.format)
+    
+    return await handler.export(creators, options.fields)
+  }
+}
+```
+
+## Small vs. Large Exports
+
+The system handles exports differently based on size:
+
+### Small Exports (< 100 creators)
+
+Processed immediately and downloaded directly:
+
+```typescript
+// Immediate processing
+const creators = await this.fetchCreatorsWithMetrics(creatorIds, options)
+const handler = this.handlers.get(options.format)
+const result = await handler.export(creators, options.fields)
+
+// Download file
+const blob = await response.blob()
+const url = URL.createObjectURL(blob)
+const a = document.createElement('a')
+a.href = url
+a.download = result.filename
+a.click()
+```
+
+### Large Exports (> 100 creators)
+
+Processed asynchronously with progress tracking:
+
+```typescript
+// Create background job
+const job: ExportJob = {
+  id: jobId,
+  userId,
+  status: 'pending',
+  format,
+  totalRecords: creatorIds.length,
+  processedRecords: 0,
+  progress: 0,
+  createdAt: new Date(),
+  expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+}
+
+// Process in batches
+const batchSize = 50
+for (const batch of batches) {
+  const creators = await this.fetchCreatorsWithMetrics(batch, options)
+  allCreators.push(...creators)
+  
+  processedRecords += batch.length
+  const progress = Math.round((processedRecords / creatorIds.length) * 100)
+  
+  this.updateJobStatus(jobId, 'processing', {
+    processedRecords,
+    progress
+  })
+}
+```
+
+## Progress Tracking
+
+For large exports, track progress in real-time:
+
+```typescript
+// Poll job status
+const pollJobStatus = async (jobId: string) => {
+  const pollInterval = setInterval(async () => {
+    const response = await fetch(`/api/creators/export?jobId=${jobId}`)
+    const job = await response.json()
+
+    setExportProgress(job.progress || 0)
+
+    if (job.status === 'completed') {
+      clearInterval(pollInterval)
+      
+      if (job.downloadUrl) {
+        downloadFile(job.downloadUrl, `export.${format}`)
+      }
+      
+      toast.success('Export completed successfully')
+    } else if (job.status === 'failed') {
+      clearInterval(pollInterval)
+      toast.error(job.error || 'Export failed')
+    }
+  }, 1000)
+}
+```
+
+### Progress UI
+
+```typescript
+{isExporting && jobId && (
+  <div className="space-y-2">
+    <div className="flex items-center justify-between text-sm">
+      <span>Exporting...</span>
+      <span>{exportProgress}%</span>
+    </div>
+    <Progress value={exportProgress} />
+  </div>
+)}
+```
+
+## CSV Export
+
+CSV format is ideal for spreadsheet applications:
+
+```typescript
+// From lib/export/handlers/csv-handler.ts
+export class CSVExportHandler implements ExportHandler {
+  format: ExportFormat = 'csv'
+
+  async export(data: any[], fields: ExportField[]): Promise<ExportResult> {
+    // Generate CSV headers
+    const headers = fields.map(f => f.label)
+    
+    // Generate CSV rows
+    const rows = data.map(item => 
+      fields.map(field => {
+        const value = item[field.key]
+        return this.formatValue(value, field.type)
+      })
+    )
+    
+    // Combine headers and rows
+    const csv = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n')
+    
+    const buffer = Buffer.from(csv, 'utf-8')
+    const filename = `creators-export-${Date.now()}.csv`
+    
+    return {
+      data: buffer,
+      filename,
+      mimeType: 'text/csv',
+      size: buffer.length
+    }
+  }
+}
+```
+
+## JSON Export
+
+JSON format preserves data types and structure:
+
+```typescript
+// From lib/export/handlers/json-handler.ts
+export class JSONExportHandler implements ExportHandler {
+  format: ExportFormat = 'json'
+
+  async export(data: any[], fields: ExportField[]): Promise<ExportResult> {
+    // Filter data to include only selected fields
+    const filtered = data.map(item => {
+      const obj: any = {}
+      fields.forEach(field => {
+        obj[field.key] = item[field.key]
+      })
+      return obj
+    })
+    
+    // Pretty print JSON
+    const json = JSON.stringify({
+      exportedAt: new Date().toISOString(),
+      totalRecords: filtered.length,
+      creators: filtered
+    }, null, 2)
+    
+    const buffer = Buffer.from(json, 'utf-8')
+    const filename = `creators-export-${Date.now()}.json`
+    
+    return {
+      data: buffer,
+      filename,
+      mimeType: 'application/json',
+      size: buffer.length
+    }
+  }
+}
+```
+
+### JSON Structure
+
+```json
+{
+  "exportedAt": "2024-03-15T10:30:00Z",
+  "totalRecords": 25,
+  "creators": [
+    {
+      "id": "creator-123",
+      "username": "foodcreator",
+      "name": "Food Creator",
+      "platform": "tiktok",
+      "followerCount": 150000,
+      "engagementRate": 4.5,
+      "avgLikes": 6750,
+      "avgComments": 450,
+      "niche": "cooking"
+    }
+  ]
+}
+```
+
+## Excel Export
+
+Excel format includes formatting and multiple sheets:
+
+```typescript
+// From lib/export/handlers/excel-handler.ts
+export class ExcelExportHandler implements ExportHandler {
+  format: ExportFormat = 'excel'
+
+  async export(data: any[], fields: ExportField[]): Promise<ExportResult> {
+    const workbook = new ExcelJS.Workbook()
+    const worksheet = workbook.addWorksheet('Creators')
+    
+    // Add headers with styling
+    worksheet.columns = fields.map(field => ({
+      header: field.label,
+      key: field.key,
+      width: 20
+    }))
+    
+    // Style header row
+    worksheet.getRow(1).font = { bold: true }
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' }
+    }
+    
+    // Add data rows
+    data.forEach(item => {
+      worksheet.addRow(item)
+    })
+    
+    // Generate buffer
+    const buffer = await workbook.xlsx.writeBuffer()
+    const filename = `creators-export-${Date.now()}.xlsx`
+    
+    return {
+      data: buffer,
+      filename,
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      size: buffer.byteLength
+    }
+  }
+}
+```
+
+## Quick Export from Finder
+
+Export search results directly from the Finder page:
+
+```typescript
+// Quick CSV export
+const handleExportCSV = async () => {
+  const creators = data.creators
+  const csvHeaders = [
+    'Username',
+    'Full Name',
+    'Followers',
+    'Posts (30d)',
+    'Engagement Rate (%)',
+    'Profile URL'
+  ]
+  
+  const csvRows = creators.map(creator => [
+    creator.username,
+    creator.nickName || creator.name,
+    creator.followerCount,
+    creator.posts30d,
+    (creator.engagementRate * 100).toFixed(2),
+    `https://www.tiktok.com/@${creator.username}`
+  ])
+  
+  const csv = [csvHeaders.join(','), ...csvRows.map(row => row.join(','))].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `tiktok-creators-${Date.now()}.csv`
+  a.click()
+}
+```
+
+## Export Analytics Data
+
+Export time-series analytics data:
+
+```typescript
+// Export creator analytics over date range
+const result = await exportService.exportCreatorAnalytics(
+  creatorId,
+  { start: startDate, end: endDate },
+  { format: 'csv', fields: analyticsFields }
+)
+```
+
+Analytics exports include:
+- Daily follower counts
+- Daily engagement rates
+- Views, likes, comments, shares per day
+- Post frequency metrics
+
+## Best Practices
+
+<Tip>
+  Use CSV format for importing into spreadsheet applications. Use JSON format for API integration or data processing.
+</Tip>
+
+<Warning>
+  Large exports (1000+ creators) may take several minutes to process. The system will send you a notification when the export is ready.
+</Warning>
+
+<Tip>
+  Export only the fields you need to reduce file size and processing time. Exclude unnecessary fields using the field selector.
+</Tip>
+
+## API Export
+
+Export data programmatically via API:
+
+```bash
+curl -X POST https://your-domain.com/api/creators/export \
+  -H "Content-Type: application/json" \
+  -d '{
+    "creatorIds": ["id1", "id2"],
+    "format": "json",
+    "fields": [
+      {"key": "username", "label": "Username"},
+      {"key": "followerCount", "label": "Followers"}
+    ]
+  }'
+```
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Analytics Dashboard" icon="chart-bar" href="/features/analytics-dashboard">
+    View and analyze creator metrics before export
+  </Card>
+  
+  <Card title="Keyword Search" icon="search" href="/features/keyword-search">
+    Search for creators and export results
+  </Card>
+</CardGroup>

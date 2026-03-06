@@ -1,0 +1,295 @@
+---
+title: 'Keyword Search'
+description: 'Search and discover TikTok creators using keywords and filters'
+icon: 'magnifying-glass'
+---
+
+The Keyword Search feature (also called "Finder") allows you to manually search for TikTok creators using keywords, hashtags, and advanced filters. The system scrapes TikTok in real-time to find profiles matching your criteria.
+
+## Search Interface
+
+The Finder page (`/scraper`) provides a simple interface for discovering creators:
+
+<img src="/images/finder-interface.png" alt="Finder search interface" />
+
+<Steps>
+  <Step title="Enter Keywords">
+    Type one or more keywords to search for TikTok creators. You can enter multiple terms separated by newlines.
+
+    ```
+    cooking recipes
+    food blogger
+    chef tutorials
+    ```
+
+    **Validation Rules:**
+    - Minimum 2 characters per keyword
+    - Maximum 50 characters per keyword
+    - Maximum 20 keywords per search
+    - Allowed characters: letters, numbers, spaces, dots, underscores, hyphens
+  </Step>
+
+  <Step title="Run the Pipeline">
+    Click "Find Profiles" to start the TikTok scraping pipeline. The system will:
+    
+    1. Search TikTok for profiles matching your keywords
+    2. Scrape profile data including followers, engagement, and recent posts
+    3. Calculate engagement metrics and statistics
+    4. Display results in a sortable table
+  </Step>
+
+  <Step title="Review Results">
+    Browse the discovered profiles in the results table. Each profile shows:
+    - Username and display name
+    - Follower count
+    - Total posts
+    - Average likes per post
+    - Engagement rate
+    - Profile URL
+  </Step>
+
+  <Step title="Select and Add Creators">
+    Select the profiles you want to track and click "Add Selected" to import them into your main Creators dashboard.
+  </Step>
+</Steps>
+
+## Search Implementation
+
+The search uses TikTok's Apify scraper to find profiles:
+
+```typescript
+// From lib/services/tiktok-apify-service.ts
+async searchProfiles(keywords: string[], limit: number = 50): Promise<TikTokUser[]> {
+  const cacheKey = `${this.cachePrefix}search:${keywords.join('-')}:${limit}`
+  
+  // Run Apify actor with search queries
+  const result = await this.actorManager.searchTikTokProfiles(keywords, {
+    maxProfilesPerQuery: limit,
+    resultsPerPage: 100,
+  })
+  
+  // Get results from dataset
+  const searchResults = await this.actorManager.getRunDataset(result.datasetId)
+  
+  // Transform search results to TikTokUser format
+  const profiles: TikTokUser[] = []
+  for (const result of searchResults) {
+    if (result.authorMeta) {
+      const user: TikTokUser = {
+        id: result.authorMeta.id,
+        uniqueId: result.authorMeta.name,
+        nickname: result.authorMeta.nickName,
+        followerCount: result.authorStats?.followerCount || 0,
+        verified: result.authorMeta.verified || false,
+        // ... more fields
+      }
+      profiles.push(user)
+    }
+  }
+  
+  return profiles
+}
+```
+
+## Real-time Pipeline Output
+
+The search displays real-time progress in a terminal-style interface:
+
+```typescript
+// From app/scraper/page.tsx
+const client = new StreamingClient('/api/scraper/run-pipeline', {
+  keywords: keywords
+})
+
+await client.connect({
+  onOutput: (data) => {
+    setTerminalOutput(prev => [...prev, data])
+  },
+  onProgress: (progress) => {
+    setLoadingProgress(progress.percent)
+    setLoadingMessage(progress.status)
+  },
+  onComplete: (result) => {
+    if (result.success) {
+      toast.success('Pipeline completed successfully')
+    }
+  }
+})
+```
+
+### Terminal Output Example
+
+```bash
+➤ Starting TikTok pipeline...
+➤ Searching for profiles matching keywords: cooking recipes
+✓ Found 45 creator profiles
+➤ Scraping 30-day profile data
+[████████████████████████████████] 100%
+✓ Processed 45 profiles
+✅ Pipeline completed successfully
+```
+
+## Results Table
+
+Search results are displayed in an interactive data table:
+
+```typescript
+// Results table with selection
+<DataTable
+  columns={createFinderColumns()}
+  data={scrapedResults}
+  loading={false}
+  onRowSelectionChange={handleRowSelection}
+  enableRowSelection={true}
+/>
+```
+
+### Table Columns
+
+- **Select**: Checkbox to select multiple profiles
+- **Username**: TikTok handle (clickable link to profile)
+- **Name**: Display name
+- **Followers**: Total follower count
+- **Posts**: Number of posts
+- **Avg Likes**: Average likes per post
+- **Engagement Rate**: Calculated engagement percentage
+- **Profile URL**: Direct link to TikTok profile
+
+## Managing Results
+
+Once you have search results, you can:
+
+<CardGroup cols={3}>
+  <Card title="Add Selected" icon="plus">
+    Import selected profiles to your Creators dashboard for ongoing tracking
+  </Card>
+  
+  <Card title="Remove Selected" icon="trash">
+    Remove unwanted profiles from the search results
+  </Card>
+  
+  <Card title="Clear Results" icon="x">
+    Clear all results and start a new search
+  </Card>
+</CardGroup>
+
+### Adding Profiles to Database
+
+```typescript
+// From app/scraper/page.tsx
+const handleAddSelected = async () => {
+  const selectedProfiles = scrapedResults.filter(profile => 
+    selectedRows.has(profile.id)
+  )
+
+  const response = await fetch('/api/scraper/add-selected', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ profiles: selectedProfiles })
+  })
+
+  const result = await response.json()
+  toast.success(`Added ${result.added} profiles to creators dashboard`)
+}
+```
+
+## Advanced Search Features
+
+### Multi-keyword Search
+
+Search for creators matching multiple related keywords:
+
+```
+fitness workout
+gym trainer
+home exercise
+yoga instructor
+```
+
+The system will search for each keyword and combine the results, removing duplicates.
+
+### Cached Results
+
+To improve performance, search results are cached:
+
+```typescript
+private async getFromCache(key: string): Promise<any> {
+  // Check if results exist in cache
+  // Return cached data if fresh (within TTL)
+}
+
+private async saveToCache(key: string, data: any, ttl?: number): Promise<void> {
+  // Save results to Redis/cache with expiration
+}
+```
+
+Cached results display a "🚀 Cached" badge and show the cache age.
+
+## Search Validation
+
+The system validates your search input before running:
+
+```typescript
+const validateKeywords = (keywordList: string[]) => {
+  if (keywordList.length === 0) {
+    return "Please enter at least one keyword"
+  }
+  
+  if (keywordList.length > 20) {
+    return "Maximum 20 keywords allowed"
+  }
+  
+  for (const keyword of keywordList) {
+    if (keyword.length < 2) {
+      return "Keywords must be at least 2 characters long"
+    }
+    if (!/^[a-zA-Z0-9._\-\s]+$/.test(keyword)) {
+      return "Keywords can only contain letters, numbers, spaces, dots, underscores, and hyphens"
+    }
+  }
+  
+  return null
+}
+```
+
+## Error Handling
+
+The search interface includes comprehensive error handling:
+
+```typescript
+<FinderErrorBoundary>
+  {/* Search interface */}
+</FinderErrorBoundary>
+```
+
+Common errors:
+- **Rate Limiting**: Too many requests to TikTok API
+- **Invalid Keywords**: Keywords that don't meet validation rules
+- **Scraper Timeout**: Search took too long to complete
+- **No Results**: No profiles found matching keywords
+
+## Performance Tips
+
+<Tip>
+  Use specific, focused keywords rather than broad terms. "vegan recipe creator" will return better results than just "food".
+</Tip>
+
+<Warning>
+  Each search consumes Apify credits. Monitor your usage in the Apify dashboard to avoid unexpected costs.
+</Warning>
+
+<Tip>
+  Review cached results before running a new search. Cached results are often sufficient for repeat searches.
+</Tip>
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Creator Discovery" icon="compass" href="/features/creator-discovery">
+    Automated discovery using trending topics
+  </Card>
+  
+  <Card title="Analytics Dashboard" icon="chart-bar" href="/features/analytics-dashboard">
+    Analyze creator performance and metrics
+  </Card>
+</CardGroup>
