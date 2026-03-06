@@ -1,0 +1,133 @@
+{
+  "projectType": "saas",
+  "projectName": "TikTok Miner",
+  "projectDescription": "A creator discovery and analytics platform that scrapes TikTok to find and analyze content creators based on engagement metrics and trends.",
+  "theme": "sequoia",
+  "primaryColor": "#00F2EA",
+  "lightColor": "#FF0050",
+  "darkColor": "#000000",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/creator-discovery",
+              "features/keyword-search",
+              "features/analytics-dashboard",
+              "features/data-export"
+            ]
+          },
+          {
+            "group": "Platform Integration",
+            "pages": [
+              "platforms/tiktok",
+              "platforms/instagram",
+              "platforms/twitter",
+              "platforms/youtube"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/discovery-pipeline",
+              "advanced/budget-management",
+              "advanced/api-monitoring",
+              "advanced/cli-tools"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/docker",
+              "deployment/environment-variables",
+              "deployment/database-setup"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/introduction",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "Creator APIs",
+            "pages": [
+              "api/creators/search",
+              "api/creators/profile",
+              "api/creators/metrics"
+            ]
+          },
+          {
+            "group": "Discovery APIs",
+            "pages": [
+              "api/discovery/trending",
+              "api/discovery/keywords",
+              "api/discovery/queue"
+            ]
+          },
+          {
+            "group": "Budget & Monitoring",
+            "pages": [
+              "api/budget/overview",
+              "api/monitoring/alerts"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "CLI Reference",
+        "groups": [
+          {
+            "group": "Commands",
+            "pages": [
+              "cli/overview",
+              "cli/creators",
+              "cli/discovery",
+              "cli/database"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Automated TikTok creator discovery via keyword search",
+    "30-day engagement metrics aggregation (views, likes, comments, shares)",
+    "Multi-platform support (TikTok, Instagram, Twitter, YouTube)",
+    "Real-time analytics dashboard with filtering and sorting",
+    "Budget management and API cost tracking",
+    "Automated discovery pipeline with job queuing",
+    "Data export to CSV and other formats",
+    "CLI tools for database and creator management"
+  ],
+  "publicApiSurface": [
+    "TikTokApifyService.getUserProfile(username)",
+    "TikTokApifyService.searchProfiles(keywords, limit)",
+    "TikTokApifyService.getUserInsights(username)",
+    "DiscoveryPipeline.start()",
+    "DiscoveryPipeline.processTrendingDiscovery(data)",
+    "CreatorEvaluator.evaluateCreator(creatorData)",
+    "DataAggregationEngine.aggregateCreatorData(creatorId)",
+    "BudgetManager (budget allocation and tracking)",
+    "CLI: tiktok-miner creators <subcommand>",
+    "CLI: tiktok-miner discovery <subcommand>",
+    "CLI: tiktok-miner db <subcommand>"
+  ]
+}
