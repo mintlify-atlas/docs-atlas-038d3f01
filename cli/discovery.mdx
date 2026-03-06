@@ -1,578 +1,178 @@
 ---
 title: Discovery Commands
-description: Automated creator discovery across social media platforms
+description: Discovery pipeline CLI commands (planned)
 ---
+
+<Warning>
+  The discovery commands are currently in planning/development. The CLI entry point references these commands, but the implementation modules do not yet exist in the codebase.
+</Warning>
 
 ## Overview
 
-The `discovery` command group provides powerful automated tools for discovering new creators across multiple platforms. It uses trending topics, category exploration, and intelligent evaluation to find high-quality creators that match your criteria.
+The `discovery` command group is planned to provide CLI access to the automated creator discovery pipeline. This will enable developers to trigger discovery jobs, monitor pipeline status, and manage discovery queues from the command line.
 
-## Architecture
-
-The discovery system consists of several components:
-
-- **Discovery Pipeline** - Orchestrates the entire discovery workflow
-- **Trending Discovery** - Finds creators based on trending topics and hashtags
-- **Creator Evaluator** - Scores creators based on quality metrics
-- **Duplicate Detector** - Prevents duplicate entries
-- **Queue System** - Manages discovery jobs with BullMQ
-
-## Commands
+## Planned Commands
 
 ### Start Discovery Pipeline
 
-Start the automated discovery pipeline:
-
 ```bash
+# Planned: Start the discovery pipeline
 tiktok-miner discovery start [options]
 ```
 
-#### Options
-
-- `--mode <mode>` - Discovery mode (trending, category, both) (default: both)
-- `--platforms <platforms>` - Comma-separated platform list (default: all)
-- `--interval <hours>` - Hours between discovery runs (default: 24)
-- `--quality-threshold <score>` - Minimum quality score (0-100) (default: 60)
-- `--daemon` - Run as background daemon
-
-#### Examples
-
-**Start trending discovery for all platforms:**
-
-```bash
-tiktok-miner discovery start --mode trending
-```
-
-**Run as daemon with custom threshold:**
-
-```bash
-tiktok-miner discovery start --daemon --quality-threshold 70 --interval 12
-```
-
-**Discover only from Instagram and TikTok:**
-
-```bash
-tiktok-miner discovery start --platforms instagram,tiktok --mode category
-```
-
-#### Example Output
-
-```
-Starting discovery pipeline...
-
-Configuration:
-  Mode: trending
-  Platforms: instagram, tiktok, youtube, twitter
-  Quality Threshold: 60
-  Refresh Interval: 24 hours
-
-[2026-03-06 10:00:00] Discovery pipeline started successfully
-[2026-03-06 10:00:05] Queued trending discovery jobs for 8 topics
-[2026-03-06 10:00:10] Discovered 45 creators from #fitness
-[2026-03-06 10:00:15] Evaluating creators (batch 1/3)...
-[2026-03-06 10:00:30] Added 12 creators to database
-[2026-03-06 10:00:35] Queued 8 creators for monitoring
-
-Discovery in progress. Press Ctrl+C to stop.
-```
+Options:
+- `--mode <auto|manual>` - Discovery mode
+- `--platform <platform>` - Target platform
+- `--keywords <keywords>` - Discovery keywords
+- `--concurrency <number>` - Concurrent jobs
 
 ### Stop Discovery Pipeline
 
-Stop the running discovery pipeline:
+```bash
+# Planned: Stop the running pipeline
+tiktok-miner discovery stop [options]
+```
+
+### Pipeline Status
 
 ```bash
-tiktok-miner discovery stop
+# Planned: Check pipeline status
+tiktok-miner discovery status
 ```
 
-#### Example Output
-
-```
-Stopping discovery pipeline...
-
-[2026-03-06 11:30:00] Finishing current jobs...
-[2026-03-06 11:30:05] Shutting down queues...
-[2026-03-06 11:30:10] Discovery pipeline stopped
-
-Session Summary:
-  Duration: 1h 30m
-  Creators Discovered: 234
-  Creators Added: 45
-  Creators Monitored: 32
-  Creators Rejected: 157
-```
-
-### Discover Trending
-
-Manually trigger trending topic discovery:
+### Trigger Trending Discovery
 
 ```bash
+# Planned: Discover creators from trending topics
 tiktok-miner discovery trending [options]
 ```
 
-#### Options
-
-- `--topic <topic>` - Specific topic to discover (optional)
-- `--platform <platform>` - Target platform (required if topic specified)
-- `--limit <number>` - Maximum creators to discover (default: 50)
-- `--auto-add` - Automatically add qualified creators
-
-#### Examples
-
-**Discover trending across all platforms:**
-
-```bash
-tiktok-miner discovery trending
-```
-
-**Discover fitness creators on Instagram:**
-
-```bash
-tiktok-miner discovery trending --topic fitness --platform instagram --limit 30
-```
-
-**Auto-add qualified creators:**
-
-```bash
-tiktok-miner discovery trending --topic tech --platform youtube --auto-add
-```
-
-#### Example Output
-
-```
-Discovering trending creators...
-
-Trending Topics Found:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  1. fitness (Instagram)     - 170M volume, +25% growth
-  2. comedy (TikTok)         - 305M volume, +18% growth  
-  3. tech (YouTube)          - 85M volume, +32% growth
-  4. cooking (Instagram)     - 165M volume, +12% growth
-  5. gaming (Twitter)        - 72M volume, +15% growth
-
-Searching creators for: fitness (Instagram)
-
-Found 45 creators:
-  ├─ Quality Score >= 80: 8 creators
-  ├─ Quality Score 60-79: 15 creators  
-  ├─ Quality Score < 60: 22 creators
-
-Recommendations:
-  ✓ Add: 8 creators
-  ⊙ Monitor: 15 creators
-  ✗ Reject: 22 creators
-
-Queued 8 creators for addition
-Queued 15 creators for monitoring
-```
-
-### Explore Category
-
-Discover creators by content category:
-
-```bash
-tiktok-miner discovery category <category> [options]
-```
-
-#### Arguments
-
-- `<category>` - Content category (e.g., tech, fitness, cooking)
-
-#### Options
-
-- `--platforms <platforms>` - Comma-separated platform list
-- `--limit <number>` - Creators per platform (default: 20)
-- `--min-followers <number>` - Minimum follower count
-- `--min-engagement <rate>` - Minimum engagement rate
-
-#### Examples
-
-**Explore tech category across all platforms:**
-
-```bash
-tiktok-miner discovery category tech --limit 30
-```
-
-**Find high-engagement fitness creators:**
-
-```bash
-tiktok-miner discovery category fitness \
-  --platforms instagram,tiktok \
-  --min-engagement 5 \
-  --limit 50
-```
-
-**Discover established creators:**
-
-```bash
-tiktok-miner discovery category business \
-  --min-followers 100000 \
-  --limit 20
-```
-
-#### Example Output
-
-```
-Exploring category: tech
-
-Searching platforms: Instagram, TikTok, YouTube, Twitter
-
-Instagram (20 creators found):
-  @techguru       - 125K followers, 8.5% engagement
-  @codewithsara   - 89K followers, 12.3% engagement
-  @devdaily       - 56K followers, 9.1% engagement
-  ...
-
-TikTok (20 creators found):
-  @techhacks      - 450K followers, 15.2% engagement
-  @programmergirl - 234K followers, 11.8% engagement
-  ...
-
-Total: 67 creators discovered
-Queuing for evaluation...
-
-✓ Evaluation complete
-  Added: 18 creators
-  Monitoring: 25 creators  
-  Rejected: 24 creators
-```
-
-### Refresh Existing
-
-Refresh data for existing creators:
-
-```bash
-tiktok-miner discovery refresh [identifier] [options]
-```
-
-#### Arguments
-
-- `[identifier]` - Optional creator ID. If omitted, refreshes all
-
-#### Options
-
-- `--platform <platform>` - Refresh specific platform only
-- `--priority <high|normal|low>` - Job priority (default: normal)
-- `--stale-only` - Only refresh creators not updated recently
-- `--older-than <hours>` - Refresh creators older than X hours
-
-#### Examples
-
-**Refresh a specific creator:**
-
-```bash
-tiktok-miner discovery refresh abc123 --priority high
-```
-
-**Refresh stale data:**
-
-```bash
-tiktok-miner discovery refresh --stale-only --older-than 48
-```
-
-**Refresh all YouTube data:**
-
-```bash
-tiktok-miner discovery refresh --platform youtube
-```
-
-### View Pipeline Status
-
-Check discovery pipeline status and metrics:
-
-```bash
-tiktok-miner discovery status
-```
-
-#### Example Output
-
-```
-Discovery Pipeline Status
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Pipeline: RUNNING
-
-Queues:
-
-  creator-discovery
-    Pending:   23 jobs
-    Active:    5 jobs
-    Completed: 1,234 jobs
-    Failed:    12 jobs
-    Processing Rate: 45 jobs/min
-    Avg Processing Time: 2.3s
-    Error Rate: 0.97%
-
-  creator-evaluation  
-    Pending:   67 jobs
-    Active:    10 jobs
-    Completed: 3,456 jobs
-    Failed:    34 jobs
-    Processing Rate: 120 jobs/min
-    Avg Processing Time: 0.8s
-    Error Rate: 0.98%
-
-  creator-aggregation
-    Pending:   12 jobs
-    Active:    3 jobs
-    Completed: 890 jobs
-    Failed:    5 jobs
-    Processing Rate: 25 jobs/min
-    Avg Processing Time: 5.2s  
-    Error Rate: 0.56%
-
-Scheduled Jobs:
-
-  ✓ trending-discovery-instagram    Next run: in 4h 23m
-  ✓ trending-discovery-tiktok       Next run: in 4h 23m
-  ✓ trending-discovery-youtube      Next run: in 4h 23m
-  ✓ category-exploration-tech       Next run: in 12h 00m
-  ✓ refresh-existing-creators       Next run: in 1h 15m
-```
-
-### Generate Discovery Report
-
-Generate a discovery performance report:
-
-```bash
-tiktok-miner discovery report [options]
-```
-
-#### Options
-
-- `--start <date>` - Start date (ISO format or relative like "7 days ago")
-- `--end <date>` - End date (default: now)
-- `--format <table|json|html>` - Output format (default: table)
-- `--output <path>` - Save to file
-
-#### Examples
-
-**Report for last 7 days:**
-
-```bash
-tiktok-miner discovery report --start "7 days ago"
-```
-
-**Generate HTML report:**
-
-```bash
-tiktok-miner discovery report \
-  --start "2026-03-01" \
-  --end "2026-03-06" \
-  --format html \
-  --output report.html
-```
-
-**JSON output for analysis:**
-
-```bash
-tiktok-miner discovery report --start "30 days ago" --format json > report.json
-```
-
-#### Example Output
-
-```
-Discovery Report: Mar 1-6, 2026
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Overall Statistics:
-  Creators Discovered:     1,234
-  Creators Added:          287 (23.3%)
-  Creators Rejected:       891 (72.2%)
-  Avg Quality Score:       64.5
-
-Platform Breakdown:
-  Instagram:    456 discovered, 123 added (27.0%)
-  TikTok:       389 discovered, 89 added (22.9%)
-  YouTube:      289 discovered, 56 added (19.4%)
-  Twitter:      100 discovered, 19 added (19.0%)
-
-Top Discovery Sources:
-  1. Trending Topics       : 567 creators (46.0%)
-  2. Category Exploration  : 445 creators (36.1%)
-  3. Search                : 156 creators (12.6%)
-  4. Recommendations       : 66 creators (5.3%)
-
-Trends:
-  Discovery Rate:    205.7 creators/day
-  Acceptance Rate:   23.3%
-  Week-over-Week:    +15.2% growth
-
-Top Categories:
-  1. Fitness        : 234 creators
-  2. Tech           : 189 creators
-  3. Cooking        : 156 creators
-  4. Comedy         : 145 creators
-  5. Fashion        : 123 creators
-```
-
-## Discovery Configuration
-
-### Quality Thresholds
-
-The discovery system evaluates creators based on multiple factors:
-
-```typescript
-{
-  qualityThreshold: 60,        // Minimum score to add (0-100)
-  minFollowers: 1000,          // Minimum follower count
-  maxFollowers: undefined,     // Maximum followers (undefined = no limit)
-  minEngagementRate: 1.0,      // Minimum engagement rate (%)
-  requiredPlatforms: [],       // Required platforms (empty = any)
-  excludedCategories: [        // Categories to skip
-    'adult',
-    'controversial', 
-    'spam'
-  ],
-  refreshIntervalHours: 24     // Hours between refreshes
-}
-```
-
-### Quality Score Components
-
-- **Follower Count** (20%) - Size of audience
-- **Engagement Rate** (30%) - Audience interaction level
-- **Content Frequency** (15%) - Posting consistency  
-- **Audience Quality** (20%) - Fake follower detection
-- **Growth Trend** (15%) - Recent growth trajectory
-
-## Discovery Sources
-
-### Trending Topics
-
-Discovers creators posting about trending topics:
-
-- Monitors platform trending hashtags
-- Tracks topic volume and growth rates
-- Searches creators by topic relevance
-- Prioritizes fast-growing trends
+Options:
+- `--topic <topic>` - Specific trending topic
+- `--platform <platform>` - Target platform
+- `--limit <number>` - Maximum creators to discover
 
 ### Category Exploration
 
-Finds creators by content category:
-
-- Searches predefined categories
-- Explores related hashtags
-- Cross-platform discovery
-- Scheduled periodic runs
-
-### Search
-
-Custom search queries:
-
-- Keyword-based discovery
-- Advanced filtering
-- Manual review workflow
-
-## Best Practices
-
-### Regular Scheduled Discovery
-
-Run discovery on a schedule for continuous growth:
-
 ```bash
-# Cron job for daily trending discovery
-0 10 * * * cd /app && bun cli/index.ts discovery trending --auto-add
-
-# Weekly category exploration
-0 0 * * 0 cd /app && bun cli/index.ts discovery category tech --limit 50
+# Planned: Explore creators by category
+tiktok-miner discovery explore <category> [options]
 ```
 
-### Quality Over Quantity
+Options:
+- `--platforms <platforms>` - Comma-separated platform list
+- `--limit <number>` - Creators per platform
 
-Use higher quality thresholds to maintain database quality:
-
-```bash
-# High-quality creators only
-tiktok-miner discovery start --quality-threshold 75 --min-followers 10000
-```
-
-### Monitor Discovery Metrics
-
-Regularly check pipeline status and adjust settings:
+### Queue Management
 
 ```bash
-# Check metrics
-tiktok-miner discovery status
-
-# Generate weekly reports
-tiktok-miner discovery report --start "7 days ago" --output weekly-report.html
+# Planned: View discovery queue status
+tiktok-miner discovery queue [options]
 ```
 
-### Platform-Specific Discovery
+Options:
+- `--status <pending|processing|completed|failed>` - Filter by status
+- `--priority <high|normal|low>` - Filter by priority
 
-Focus on platforms relevant to your needs:
+## Current Workaround
+
+While CLI discovery commands are being implemented, you can:
+
+### Use the Web Interface
+
+Navigate to `/scraper` (Finder page) in the web application to:
+- Enter keywords for creator discovery
+- Run the TikTok pipeline
+- Monitor real-time progress
+- View and manage results
+
+### Access Discovery Pipeline via Code
+
+The discovery pipeline is available as a library:
+
+```typescript
+import { DiscoveryPipeline } from '@/lib/discovery/discovery-pipeline';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+const pipeline = new DiscoveryPipeline(prisma);
+
+// Start the pipeline
+await pipeline.start();
+
+// Get pipeline status
+const status = await pipeline.getStatus();
+console.log(status);
+```
+
+### Query Discovery Data via SQL
 
 ```bash
-# YouTube and Instagram only
-tiktok-miner discovery start --platforms youtube,instagram
+bun cli/index.ts query-db "
+SELECT 
+  id,
+  username,
+  \"followerCount\",
+  \"engagementRate\",
+  \"discoveredAt\"
+FROM \"TiktokProfile\"
+WHERE \"discoveredAt\" > NOW() - INTERVAL '7 days'
+ORDER BY \"discoveredAt\" DESC
+LIMIT 50
+"
 ```
 
-## Troubleshooting
+## Discovery Pipeline Architecture
 
-### High Rejection Rate
+The discovery pipeline consists of three main stages:
 
-If too many creators are rejected:
+1. **Discovery**: Find creators from trending topics, categories, or keywords
+2. **Evaluation**: Score creators based on engagement and quality metrics
+3. **Aggregation**: Collect detailed metrics and historical data
 
-- Lower quality threshold: `--quality-threshold 50`
-- Reduce minimum requirements: `--min-followers 500`
-- Check excluded categories configuration
+See the [Discovery Pipeline](/advanced/discovery-pipeline) documentation for detailed architecture information.
 
-### Rate Limiting
+## Related Documentation
 
-If hitting API rate limits:
+<CardGroup cols={2}>
+  <Card title="Discovery Pipeline" icon="magnifying-glass" href="/advanced/discovery-pipeline">
+    Architecture and implementation details
+  </Card>
+  <Card title="Keyword Search" icon="search" href="/features/keyword-search">
+    Web interface for discovery
+  </Card>
+  <Card title="Creator Discovery" icon="users" href="/features/creator-discovery">
+    Automated discovery features
+  </Card>
+  <Card title="Database Commands" icon="database" href="/cli/database">
+    Query discovery results
+  </Card>
+</CardGroup>
 
-- Reduce batch size and concurrency
-- Increase interval between runs
-- Use platform-specific API keys
-- Consider premium API tiers
+## Implementation Status
 
-### Duplicate Detection
+Track the implementation of discovery CLI commands in the [GitHub repository](https://github.com/aquaright1/tiktok-minor). Priority features:
 
-If duplicates are being added:
+- [ ] Pipeline start/stop controls
+- [ ] Real-time status monitoring
+- [ ] Queue management
+- [ ] Trending topic discovery
+- [ ] Category exploration
+- [ ] Report generation
 
-- Check duplicate detector logs
-- Verify platform identifiers are correct
-- Review cross-platform matching logic
+## Contributing
 
-## Advanced Usage
+Contributions are welcome! The discovery commands would be implemented in:
 
-### Custom Evaluation Criteria
-
-Implement custom evaluation logic by modifying the configuration:
-
-```bash
-tiktok-miner discovery start \
-  --quality-threshold 70 \
-  --min-followers 5000 \
-  --min-engagement 3.5
+```
+app/cli/commands/discovery/
+├── start.ts
+├── stop.ts
+├── status.ts
+├── trending.ts
+├── explore.ts
+├── queue.ts
+└── index.ts
 ```
 
-### Multi-Stage Discovery
-
-Run discovery in stages for better control:
-
-```bash
-# Stage 1: Discover trending
-tiktok-miner discovery trending --topic tech > discovered.json
-
-# Stage 2: Review and filter
-cat discovered.json | jq '.[] | select(.qualityScore > 75)' > approved.json
-
-# Stage 3: Add approved creators
-cat approved.json | while read creator; do
-  tiktok-miner creators add $(echo $creator | jq -r '.username') \
-    --platform $(echo $creator | jq -r '.platform')
-done
-```
-
-### Integration with Other Tools
-
-Export discovery data for external analysis:
-
-```bash
-# Export to data warehouse
-tiktok-miner discovery report --format json --start "30 days ago" | \
-  psql -h warehouse.example.com -d analytics -c "
-    COPY discovery_metrics FROM STDIN WITH (FORMAT json)
-  "
-```
+See the repository for contribution guidelines and architecture documentation.

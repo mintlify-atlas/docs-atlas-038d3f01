@@ -5,43 +5,49 @@ description: Introduction to the TikTok Miner command-line interface
 
 ## Introduction
 
-The TikTok Miner CLI is a powerful command-line tool for managing creator discovery, database operations, and platform analytics. Built with Commander.js and TypeScript, it provides developers and analysts with direct access to the TikTok Miner platform's core functionality.
+The TikTok Miner CLI is a command-line tool for querying and managing the TikTok Miner database. Built with Commander.js and TypeScript, it provides developers with direct database access.
+
+<Warning>
+  The CLI is currently in early development. Many planned features are not yet implemented in the source code. This documentation describes the current `query-db` command and planned future capabilities.
+</Warning>
 
 ## Installation
 
 The CLI is bundled with the TikTok Miner application. To use it:
 
-```bash
+<CodeGroup>
+```bash Bun
 bun cli/index.ts <command> [options]
 ```
 
-Or use the npm script:
-
-```bash
+```bash npm
 npm run cli <command> [options]
 ```
+</CodeGroup>
 
 ## Available Commands
 
-The CLI is organized into several command groups:
-
-### Creator Management
-- **creators** - Manage and analyze creator profiles across platforms
-- Search creators by platform, engagement metrics, or category
-- Export creator data in various formats
-- Update creator profiles and sync platform data
-
-### Discovery Operations
-- **discovery** - Run automated creator discovery pipelines
-- Discover trending topics and creators
-- Explore content categories across platforms
-- Monitor discovery queue status and metrics
+Currently, the CLI implements the following command:
 
 ### Database Operations
-- **query-db** - Query and explore database contents
-- Execute custom SQL queries
-- Search for creators, repositories, and job descriptions
-- View related data with automatic joins
+
+- **query-db** - Query and explore database contents with SQL
+  - Execute custom SQL queries against PostgreSQL
+  - Query creator profiles, metrics, and analytics
+  - Access budget and cost tracking data
+
+<Note>
+  Additional command groups (creators, discovery) are planned but not yet fully implemented in the codebase. The CLI entry point references these modules but the implementation files are pending.
+</Note>
+
+## Planned Commands
+
+The following commands are referenced in the CLI architecture but pending implementation:
+
+- **creators** - Creator profile management (planned)
+- **discovery** - Discovery pipeline operations (planned)
+- **db** - Extended database utilities (planned)
+- **analysis** - Analytics and reporting (planned)
 
 ## Global Options
 
@@ -57,127 +63,152 @@ All commands support these global options:
 The CLI requires environment variables to be configured. Create a `.env` file in the project root:
 
 ```bash
+# Required: Database connection
 DATABASE_URL=postgresql://user:password@localhost:5432/tiktok_miner
 DIRECT_URL=postgresql://user:password@localhost:5432/tiktok_miner
 
-# Platform API Keys (optional, for discovery features)
-YOUTUBE_API_KEY=your_key_here
-TWITTER_API_KEY=your_key_here
-INSTAGRAM_API_KEY=your_key_here
-TIKTOK_API_KEY=your_key_here
+# Optional: For future features
+APIFY_API_TOKEN=your_apify_token
+OPENAI_API_KEY=your_openai_key
 ```
 
 ## Quick Start
 
 ### Query Database
 
-Search for a creator by username:
+Execute a raw SQL query:
 
 ```bash
-bun cli/index.ts query-db --username john_doe
+bun cli/index.ts query-db "SELECT * FROM \"CreatorProfile\" LIMIT 10"
 ```
 
-### View All Creators
-
-List all creators with a limit:
+Query TikTok profiles:
 
 ```bash
-bun cli/index.ts query-db --limit 10
+bun cli/index.ts query-db "SELECT username, \"followerCount\" FROM \"TiktokProfile\" ORDER BY \"followerCount\" DESC LIMIT 20"
 ```
 
-### Execute Raw SQL
-
-Run a custom query:
+### Check CLI Version
 
 ```bash
-bun cli/index.ts query-db "SELECT * FROM CreatorProfile WHERE totalReach > 100000"
+bun cli/index.ts --version
 ```
 
-## Command Structure
-
-Commands follow this general pattern:
+### Get Help
 
 ```bash
-tiktok-miner <command> [subcommand] [options] [arguments]
-```
-
-### Examples
-
-```bash
-# Database query with options
-tiktok-miner query-db --username creator123 --repos
-
-# Discovery with topic
-tiktok-miner discovery trending --topic fitness --platform instagram
-
-# Creator search
-tiktok-miner creators search --category tech --min-followers 10000
+bun cli/index.ts --help
+bun cli/index.ts query-db --help
 ```
 
 ## Output Formats
 
 The CLI supports multiple output formats:
 
-- **Table** (default) - Pretty-printed tables in the terminal
-- **JSON** - Machine-readable JSON output
-- **CSV** - Export data to CSV files
+- **Table** (default): Human-readable table format
+- **JSON**: Machine-readable JSON output
+- **CSV**: Spreadsheet-compatible format
 
-## Error Handling
+## Command Structure
 
-The CLI provides detailed error messages:
+The CLI follows this general structure:
 
 ```bash
-# Database connection error
-Error: DATABASE_URL is not defined
-
-# Invalid query
-Error executing query: Invalid SQL syntax
-
-# Rate limit error
-Error: Platform API rate limit exceeded. Try again in 15 minutes.
+tiktok-miner <command> [subcommand] [options] [arguments]
 ```
 
-## Logging
+Examples:
+```bash
+# Database query
+tiktok-miner query-db --username john_doe
 
-The CLI logs operations to the console with severity levels:
+# Raw SQL
+tiktok-miner query-db "SELECT * FROM creators"
+```
 
-- **INFO** - Normal operations and progress
-- **WARN** - Non-critical issues
-- **ERROR** - Failures and exceptions
+## Development Status
 
-## Next Steps
+The TikTok Miner CLI is under active development. Current status:
 
-<CardGroup cols={3}>
+✅ **Implemented:**
+- Basic CLI framework with Commander.js
+- `query-db` command structure
+- Version and help commands
+
+⏳ **In Progress:**
+- Query result formatting
+- Creator management commands
+- Discovery pipeline integration
+
+📋 **Planned:**
+- Export functionality
+- Batch operations
+- Analytics commands
+- Reporting tools
+
+## Related Documentation
+
+<CardGroup cols={2}>
   <Card title="Database Commands" icon="database" href="/cli/database">
-    Query and explore database contents
+    Detailed query-db command reference
   </Card>
-  <Card title="Creator Commands" icon="user" href="/cli/creators">
-    Manage creator profiles and analytics
+  <Card title="Database Setup" icon="gear" href="/deployment/database-setup">
+    Database schema and configuration
   </Card>
-  <Card title="Discovery Commands" icon="magnifying-glass" href="/cli/discovery">
-    Automate creator discovery pipelines
+  <Card title="Environment Variables" icon="key" href="/deployment/environment-variables">
+    Complete configuration reference
+  </Card>
+  <Card title="API Monitoring" icon="chart-line" href="/advanced/api-monitoring">
+    Monitor CLI operations and costs
   </Card>
 </CardGroup>
 
-## Common Workflows
+## Troubleshooting
 
-### Discovering New Creators
+<AccordionGroup>
+  <Accordion title="Command not found">
+    Ensure you're running the CLI from the `app/` directory where `cli/index.ts` is located.
+    
+    ```bash
+    cd app
+    bun cli/index.ts --help
+    ```
+  </Accordion>
 
-1. Run trending discovery for a topic
-2. Review quality scores and metrics
-3. Add approved creators to database
-4. Schedule regular sync jobs
+  <Accordion title="Database connection errors">
+    Verify your `DATABASE_URL` is correct and the PostgreSQL server is running:
+    
+    ```bash
+    # Check if PostgreSQL is running
+    docker-compose ps postgres
+    
+    # Test connection
+    psql $DATABASE_URL -c "SELECT 1"
+    ```
+  </Accordion>
 
-### Analyzing Creator Performance
+  <Accordion title="Module not found errors">
+    Some commands reference modules that are not yet implemented. This is expected during the development phase. Stick to the `query-db` command for current functionality.
+  </Accordion>
 
-1. Query creators by engagement metrics
-2. Export data for analysis
-3. Compare cross-platform performance
-4. Generate performance reports
+  <Accordion title="Permission errors">
+    Ensure the database user has appropriate permissions:
+    
+    ```bash
+    # Grant necessary permissions
+    GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO your_user;
+    ```
+  </Accordion>
+</AccordionGroup>
 
-### Managing Data
+## Contributing
 
-1. Query database for specific creators
-2. Update profile information
-3. Sync latest platform metrics
-4. Clean up duplicate entries
+The CLI is open for contributions. Priority areas:
+
+1. Implement creator management commands
+2. Add discovery pipeline CLI integration  
+3. Build export and reporting tools
+4. Improve output formatting
+5. Add test coverage
+
+See the main repository for contribution guidelines.
